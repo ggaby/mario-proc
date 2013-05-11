@@ -15,3 +15,8 @@
 *.exe
 *.out
 *.app
+
+#Eclipse
+.cproject
+.project
+Debug
