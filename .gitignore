@@ -19,4 +19,8 @@
 #Eclipse
 .cproject
 .project
-Debug
+
+#Build folders
+/Debug
+/Personaje
+/Plataforma
