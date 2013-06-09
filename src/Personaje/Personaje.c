@@ -14,16 +14,15 @@
 #include <unistd.h>
 #include "structs.h"
 #include "../common/sockets.h"
+#include "../common/mensaje.h"
+#include <commons/string.h>
 
 #define PORT 5001
 
-//t_nivel* orquestador_get_info_nivel(int socket_orquestador,
-//		char** plan_de_niveles);
-t_socket_client* crear_conexion_a_orquestador(t_connection_info* orquestador);
-t_socket_client* personaje_conectar_a_orquestador(t_personaje* self);
 void personaje_perder_vida(int n);
 
 t_personaje* self;
+
 int main(int argc, char* argv[]) {
 	//TODO verificar argumentos or else
 //	if (!verificar_argumentos(argv)) {
@@ -31,45 +30,64 @@ int main(int argc, char* argv[]) {
 //		return EXIT_FAILURE;
 //	}
 
-	self = personaje_new(argv[1]);
-	signal(SIGUSR1, personaje_perder_vida);
+	self = personaje_create(argv[1]);
+	signal(SIGUSR1, &personaje_perder_vida);
 	printf("Personaje creado\n");
 
-	t_socket_client* orquestador = personaje_conectar_a_orquestador(self);
+	t_socket_client* socket_orquestador = sockets_createClient(NULL, PORT);
+
+	if (socket_orquestador == NULL ) {
+		personaje_destroy(self);
+		return EXIT_FAILURE;
+	}
+
+	if (sockets_connect(socket_orquestador, self->orquestador->ip,
+			self->orquestador->puerto) == 0) {
+		sockets_destroyClient(socket_orquestador);
+		personaje_destroy(self);
+	}
+
 	printf("Conectado con la plataforma\n");
-	sockets_sendString(orquestador, "Aquí un personaje reportándose!");
-//	personaje_conectar_a_nivel(t_nivel);
+	printf("Enviando handshake\n");
+
+	t_mensaje* mensaje = mensaje_create(M_HANDSHAKE);
+	mensaje_setdata(mensaje, strdup("Aquí un personaje"),
+			strlen("Aquí un personaje") + 1);
+	printf("DATA: %s\n", (char*) mensaje_getdata(mensaje));
+	mensaje_send(mensaje, socket_orquestador);
+	mensaje_destroy(mensaje);
+
+	printf("Recibiendo resultado del handshake\n");
+	t_socket_buffer* buffer = sockets_recv(socket_orquestador);
+
+	if (buffer == NULL ) {
+		printf("Error en el resultado\n");
+		sockets_destroyClient(socket_orquestador);
+		personaje_destroy(self);
+		return EXIT_FAILURE;
+	}
+
+	t_mensaje* rta_handshake = mensaje_deserializer(buffer, 0);
+	sockets_bufferDestroy(buffer);
+
+	if (rta_handshake->length != (strlen("OK") + 1)
+			|| (!string_equals_ignore_case((char*) rta_handshake->payload, "OK"))) {
+		printf("Error en el LENGTH del resultado\n");
+		mensaje_destroy(rta_handshake);
+		sockets_destroyClient(socket_orquestador);
+		personaje_destroy(self);
+		return EXIT_FAILURE;
+	}
+
+	printf("TYPE: %d\n", rta_handshake->type);
+	printf("LENGHT: %d\n", rta_handshake->length);
+	printf("DATA: %s\n", (char*) rta_handshake->payload);
+	mensaje_destroy(rta_handshake);
+
 	personaje_destroy(self);
-	sockets_destroyClient(orquestador);
+	sockets_destroyClient(socket_orquestador);
 	printf("Conexión terminada\n");
 	return EXIT_SUCCESS;
-}
-
-
-t_socket_client* personaje_conectar_a_orquestador(t_personaje* self) {
-	t_socket_client* orquestador = crear_conexion_a_orquestador(self->orquestador);
-	return orquestador;
-	//return orquestador_get_info_nivel(socket_orquestador, self->plan_de_niveles);
-}
-
-t_socket_client* crear_conexion_a_orquestador(t_connection_info* orquestador) {
-	t_socket_client* client = sockets_createClient(NULL, PORT);
-	sockets_connect(client, orquestador->ip, orquestador->puerto);
-	return client;
-}
-
-t_nivel* orquestador_get_info_nivel(int socket_orquestador,
-		char** plan_de_niveles) {
-	//TODO
-		/*
-		 * CONECTARSE POR SOCKETS UTILIZANDO LIBRERIA COMUN Y TODA LA BOLA
-		 * ENVIAR MENSAJE DE PEDIDO DE INFO DE PROXIMO NIVEL
-		 */
-	//return nivel;
-	t_connection_info* nivel = t_connection_new("123.456.789.012:5000");
-	t_connection_info* planificador = t_connection_new("123.456.789.013:5001");
-	t_nivel* nivel_de_prueba = nivel_new(nivel, planificador);
-	return nivel_de_prueba;
 }
 
 void personaje_perder_vida(int n) {

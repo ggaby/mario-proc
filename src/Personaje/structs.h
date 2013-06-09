@@ -27,7 +27,7 @@
 		t_connection_info* planificador;
 	} t_nivel;
 
-	t_personaje* personaje_new(char* config_path);
+	t_personaje* personaje_create(char* config_path);
 	void personaje_destroy(t_personaje* self);
 	t_nivel* nivel_new(t_connection_info* nivel, t_connection_info* planificador);
 	void nivel_destroy(t_nivel* self);

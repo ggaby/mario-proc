@@ -17,7 +17,7 @@
 t_dictionary* _personaje_load_objetivos(t_config* config,
 			char** plan_de_niveles);
 
-t_personaje* personaje_new(char* config_path) {
+t_personaje* personaje_create(char* config_path) {
 	t_personaje* new = malloc(sizeof(t_personaje));
 	t_config* config = config_create(config_path);
 	new->nombre = config_get_string_value(config, "nombre");
@@ -29,12 +29,12 @@ t_personaje* personaje_new(char* config_path) {
 	new->orquestador = t_connection_new(
 			config_get_string_value(config, "orquestador"));
 	config_destroy(config);
-	free(s);
+//	free(s);
 	return new;
 }
 
 void personaje_destroy(t_personaje* self) {
-	free(self->nombre);
+//	free(self->nombre);
 	array_destroy(self->plan_de_niveles);
 	dictionary_destroy_and_destroy_elements(self->objetivos, (void*) array_destroy);
 	t_connection_destroy(self->orquestador);
