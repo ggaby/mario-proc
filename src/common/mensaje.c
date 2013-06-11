@@ -10,7 +10,6 @@
 #include <stdio.h>
 #include <err.h>
 #include <errno.h>
-#include "../Personaje/structs.h"
 
 t_mensaje* mensaje_create(uint8_t type) {
 	t_mensaje* mensaje = (t_mensaje*) malloc(sizeof(t_mensaje));
