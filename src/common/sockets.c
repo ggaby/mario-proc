@@ -14,6 +14,7 @@
 #include "sockets.h"
 #include <commons/collections/list.h>
 #include "errno.h"
+#include "list.h"
 
 /*
  *						Socket Buffer Functions
@@ -33,7 +34,6 @@ void sockets_sbufferDestroy(t_socket_sbuffer *tbuffer) {
  */
 
 void *sockets_makeaddr(char* ip, int port);
-void *sockets_makeaddrUnix(char *path);
 t_socket *sockets_create(char* ip, int port);
 int sockets_bind(t_socket* sckt, char* ip, int port);
 void sockets_destroy(t_socket* sckt);
@@ -50,15 +50,6 @@ void *sockets_makeaddr(char* ip, int port) {
 	return addr;
 }
 
-void *sockets_makeaddrUnix(char *path) {
-	struct sockaddr_un *addr = malloc(sizeof(struct sockaddr_un));
-
-	addr->sun_family = AF_UNIX;
-	strcpy(addr->sun_path, path);
-
-	return addr;
-}
-
 t_socket *sockets_create(char* ip, int port) {
 	t_socket* sckt = malloc(sizeof(t_socket));
 	sckt->desc = socket(AF_INET, SOCK_STREAM, 0);
@@ -68,15 +59,6 @@ t_socket *sockets_create(char* ip, int port) {
 		free(sckt);
 		return NULL ;
 	}
-	sockets_setMode(sckt, SOCKETMODE_BLOCK);
-	return sckt;
-}
-
-t_socket *sockets_createUnix(char *path) {
-	t_socket *sckt = malloc(sizeof(t_socket));
-	sckt->desc = socket(PF_UNIX, SOCK_STREAM, 0);
-	sckt->my_addr = sockets_makeaddrUnix(path);
-
 	sockets_setMode(sckt, SOCKETMODE_BLOCK);
 	return sckt;
 }
@@ -95,21 +77,6 @@ int sockets_bind(t_socket* sckt, char* ip, int port) {
 	if (bind(sckt->desc, (struct sockaddr *) sckt->my_addr,
 			sizeof(struct sockaddr_in)) == -1) {
 		free(sckt->my_addr);
-		sckt->my_addr = NULL;
-		return 0;
-	}
-	return 1;
-}
-
-int sockets_bindUnix(t_socket *sckt, char *path) {
-	struct sockaddr_un *addr = sockets_makeaddrUnix(path);
-	sckt->my_addr = (struct sockaddr *) addr;
-	unlink(path);
-	if (bind(sckt->desc, sckt->my_addr, SUN_LEN(addr)) == -1) {
-		printf("%s\n", strerror(errno));
-		printf("%i\n", errno);
-
-		free(addr);
 		sckt->my_addr = NULL;
 		return 0;
 	}
@@ -185,16 +152,6 @@ t_socket_client* sockets_createClient(char *ip, int port) {
 	return client;
 }
 
-t_socket_client *sockets_createClientUnix(char *path) {
-	t_socket_client* client = malloc(sizeof(t_socket_client));
-	if ((client->socket = sockets_createUnix(path)) == NULL ) {
-		free(client);
-		return NULL ;
-	}
-	sockets_setState(client, SOCKETSTATE_DISCONNECTED);
-	return client;
-}
-
 t_socket *sockets_getClientSocket(t_socket_client *client) {
 	return client->socket;
 }
@@ -221,22 +178,6 @@ int sockets_connect(t_socket_client *client, char *server_ip, int server_port) {
 
 	if (connect(client->socket->desc, (struct sockaddr *) serv_socket->my_addr,
 			sizeof(struct sockaddr_in)) == -1) {
-		free(serv_socket->my_addr);
-		free(serv_socket);
-		client->serv_socket = NULL;
-		return 0;
-	}
-	client->serv_socket = serv_socket;
-	sockets_setState(client, SOCKETSTATE_CONNECTED);
-	return 1;
-}
-
-int sockets_connectUnix(t_socket_client *client, char *path) {
-	t_socket *serv_socket = malloc(sizeof(t_socket));
-	serv_socket->my_addr = sockets_makeaddrUnix(path);
-	if (connect(client->socket->desc, serv_socket->my_addr,
-			SUN_LEN((struct sockaddr_un *)serv_socket->my_addr)) == -1) {
-		printf("%s\n", strerror(errno));
 		free(serv_socket->my_addr);
 		free(serv_socket);
 		client->serv_socket = NULL;
@@ -355,19 +296,6 @@ t_socket_server *sockets_createServer(char *ip, int port) {
 	return sckt;
 }
 
-t_socket_server *sockets_createServerUnix(char *path) {
-	t_socket_server *sckt = malloc(sizeof(t_socket_server));
-	if ((sckt->socket = sockets_createUnix(path)) == NULL ) {
-		free(sckt);
-		return NULL ;
-	}
-
-	sockets_bindUnix(sckt->socket, path);
-
-	sckt->maxconexions = DEFAULT_MAX_CONEXIONS;
-	return sckt;
-}
-
 t_socket *sockets_getServerSocket(t_socket_server* server) {
 	return server->socket;
 }
@@ -415,37 +343,6 @@ t_socket_client *sockets_accept(t_socket_server* server) {
 	return client;
 }
 
-t_socket_client *sockets_acceptUnix(t_socket_server* server) {
-	t_socket_client* client = malloc(sizeof(t_socket_client));
-	socklen_t len;
-	client->socket = malloc(sizeof(t_socket));
-	client->socket->my_addr = malloc(sizeof(struct sockaddr_un));
-
-	if (!sockets_isBlocked(server->socket)) {
-		fcntl(server->socket->desc, F_SETFL, O_NONBLOCK);
-	}
-
-	if ((client->socket->desc = accept(server->socket->desc,
-			client->socket->my_addr, &len)) == -1) {
-		printf("%s", strerror(errno));
-		free(client->socket->my_addr);
-		free(client->socket);
-		free(client);
-		return NULL ;
-	}
-
-	if (!sockets_isBlocked(server->socket)) {
-		fcntl(server->socket->desc, F_SETFL, O_NONBLOCK);
-	}
-
-	sockets_setState(client, SOCKETSTATE_CONNECTED);
-	sockets_setMode(client->socket, SOCKETMODE_BLOCK);
-	return client;
-}
-
-/*
- * TODO En closure_clientsBuildSet hay que eliminar los sockets sockets_isConnected == 0
- */
 void sockets_select(t_list* servers, t_list* clients, int usec_timeout,
 		t_socket_client *(*onAcceptClosure)(t_socket_server*),
 		int (*onRecvClosure)(t_socket_client*)) {
@@ -465,8 +362,17 @@ void sockets_select(t_list* servers, t_list* clients, int usec_timeout,
 			max_desc = curr_desc;
 	}
 
+	bool _is_disconnected(t_socket_client* client) {
+		return sockets_isConnected(client) == 0;
+	}
+
 	if (clients != NULL && list_size(clients) > 0) {
-		list_iterate(clients, (void*) &closure_clientsBuildSet);
+		// Remove disconnected clients
+		my_list_remove_and_destroy_by_condition(clients, (void*) _is_disconnected,
+				(void*) sockets_destroyClient);
+		if (list_size(clients) > 0) {
+			list_iterate(clients, (void*) &closure_clientsBuildSet);
+		}
 	}
 
 	void closure_serversBuildSet(t_socket_server *server) {
@@ -522,10 +428,8 @@ void sockets_select(t_list* servers, t_list* clients, int usec_timeout,
 		list_iterate(clients, (void*) &closure_recvFromSocket);
 		if (close_clients != NULL ) {
 			int index;
-			for (index = 0; index < list_size(close_clients);
-					index++) {
-				t_socket_client *client = list_get(close_clients,
-						index);
+			for (index = 0; index < list_size(close_clients); index++) {
+				t_socket_client *client = list_get(close_clients, index);
 				bool closure_removeSocket(t_socket_client *aux) {
 					return client->socket->desc == aux->socket->desc;
 				}
