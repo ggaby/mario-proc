@@ -135,6 +135,6 @@ int funcion_parser(t_parser parser[], char* archivo)
  free (pcProp);
  free (auxString);
  fclose (piConf);
- return 1; //TODO ver que devuelvo
+ return 1; //TODO ver que devuelvo.
 
 }

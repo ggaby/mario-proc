@@ -22,6 +22,7 @@ char* contenido;
 	
 } t_parser;
 
+
 t_memoria crearMemoria();
 
 int almacenarParticion();
