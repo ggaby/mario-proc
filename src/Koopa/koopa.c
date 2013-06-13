@@ -84,3 +84,57 @@ int eliminarParticion(){
 	int errno = list_remove_by_condition(particiones, (idAMatar));
 	return errno;
 }
+
+int funcion_parser(t_parser parser[], char* archivo)  
+{
+ FILE* piConf;
+ char* cvBuffLine = (char*)malloc(2048+1);
+ char* pcProp=(char*)malloc(2048+1);
+ char* auxString=(char*)malloc(20+1);
+
+ int linea=0;
+   
+ if((piConf = fopen(archivo, "rt")) == NULL)
+ {
+    return ERROR;
+ }
+ while(fgets(cvBuffLine,2048,piConf))
+ {
+    pcProp=NULL;
+    linea++;
+    if(cvBuffLine[0] != '#') /* Si no es linea comentada*/
+    {
+        pcProp = (char *)strtok(cvBuffLine,": \n\0\b\f\r\t\v");
+        if(pcProp != NULL)
+        {
+            strcpy(parser[linea]->operacion,pcProp);
+            //parser[linea]->operacion[strlen(pcProp+1)] = '\0'; /* TODOv er si es necesario*/
+                  
+            if ((pcProp = (char *)strtok(NULL,": \n\0\b\f\r\t\v")) != NULL)
+            {
+                strcpy(parser[linea]->id,pcProp);
+                            
+                if ((pcProp = (char *)strtok(NULL,": \n\0\b\f\r\t\v")) != NULL)
+                {
+                    strcpy(auxString,pcProp);
+                    sscanf(auxString, "%d", &parser[linea]->tamano);
+                    
+                    if ((pcProp = (char *)strtok(NULL,": \n\0\b\f\r\t\v")) != NULL)
+                    {
+                        strcpy(parser[linea]->contenido,pcProp);
+                        printf("lei cadena linea %d",linea);
+                    
+                    }
+                }
+                        
+            }
+        }
+    }
+ }
+ free (cvBuffLine);
+ free (pcProp);
+ free (auxString);
+ fclose (piConf);
+ return 1; //TODO ver que devuelvo
+
+}
