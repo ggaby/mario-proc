@@ -84,6 +84,13 @@ int main(int argc, char* argv[]) {
 	printf("DATA: %s\n", (char*) rta_handshake->payload);
 	mensaje_destroy(rta_handshake);
 
+	t_mensaje* mensaje2 = mensaje_create(2);
+	mensaje_setdata(mensaje2, strdup("Aquí un personaje otra vez"),
+			strlen("Aquí un personaje otra vez") + 1);
+	printf("DATA: %s\n", (char*) mensaje_getdata(mensaje2));
+	mensaje_send(mensaje2, socket_orquestador);
+	mensaje_destroy(mensaje2);
+
 	personaje_destroy(self);
 	sockets_destroyClient(socket_orquestador);
 	printf("Conexión terminada\n");
@@ -108,8 +115,8 @@ void personaje_perder_vida(int n) {
 t_personaje* personaje_create(char* config_path) {
 	t_personaje* new = malloc(sizeof(t_personaje));
 	t_config* config = config_create(config_path);
-	new->nombre = config_get_string_value(config, "nombre");
-	char* s = config_get_string_value(config, "simbolo");
+	new->nombre = string_duplicate(config_get_string_value(config, "nombre"));
+	char* s = string_duplicate(config_get_string_value(config, "simbolo"));
 	new->simbolo = s[0];
 	new->plan_de_niveles = config_get_array_value(config, "planDeNiveles");
 	new->objetivos = _personaje_load_objetivos(config, new->plan_de_niveles);
@@ -117,12 +124,12 @@ t_personaje* personaje_create(char* config_path) {
 	new->orquestador = t_connection_new(
 			config_get_string_value(config, "orquestador"));
 	config_destroy(config);
-//	free(s);
+	free(s);
 	return new;
 }
 
 void personaje_destroy(t_personaje* self) {
-//	free(self->nombre);
+	free(self->nombre);
 	array_destroy(self->plan_de_niveles);
 	dictionary_destroy_and_destroy_elements(self->objetivos,
 			(void*) array_destroy);

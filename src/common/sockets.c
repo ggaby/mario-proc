@@ -173,17 +173,16 @@ void sockets_setState(t_socket_client *client, e_socket_state state) {
 }
 
 int sockets_connect(t_socket_client *client, char *server_ip, int server_port) {
-	t_socket *serv_socket = malloc(sizeof(t_socket));
-	serv_socket->my_addr = sockets_makeaddr(server_ip, server_port);
+	client->serv_socket = malloc(sizeof(t_socket));
+	client->serv_socket->my_addr = sockets_makeaddr(server_ip, server_port);
 
-	if (connect(client->socket->desc, (struct sockaddr *) serv_socket->my_addr,
+	if (connect(client->socket->desc,
+			(struct sockaddr *) client->serv_socket->my_addr,
 			sizeof(struct sockaddr_in)) == -1) {
-		free(serv_socket->my_addr);
-		free(serv_socket);
+		sockets_destroy(client->serv_socket);
 		client->serv_socket = NULL;
 		return 0;
 	}
-	client->serv_socket = serv_socket;
 	sockets_setState(client, SOCKETSTATE_CONNECTED);
 	return 1;
 }
@@ -279,6 +278,9 @@ void sockets_destroyClient(t_socket_client *client) {
 	if (!sockets_isConnected(client))
 		client->socket->desc = -1;
 	sockets_destroy(client->socket);
+	if (client->serv_socket != NULL ) {
+		sockets_destroy(client->serv_socket);
+	}
 	free(client);
 }
 
@@ -362,17 +364,8 @@ void sockets_select(t_list* servers, t_list* clients, int usec_timeout,
 			max_desc = curr_desc;
 	}
 
-	bool _is_disconnected(t_socket_client* client) {
-		return sockets_isConnected(client) == 0;
-	}
-
 	if (clients != NULL && list_size(clients) > 0) {
-		// Remove disconnected clients
-		my_list_remove_and_destroy_by_condition(clients, (void*) _is_disconnected,
-				(void*) sockets_destroyClient);
-		if (list_size(clients) > 0) {
-			list_iterate(clients, (void*) &closure_clientsBuildSet);
-		}
+		list_iterate(clients, (void*) &closure_clientsBuildSet);
 	}
 
 	void closure_serversBuildSet(t_socket_server *server) {
@@ -416,7 +409,6 @@ void sockets_select(t_list* servers, t_list* clients, int usec_timeout,
 
 	void closure_recvFromSocket(t_socket_client *client) {
 		if (FD_ISSET(client->socket->desc, &conexions_set)) {
-//				&& (&onRecvClosure != NULL )) {
 			if (onRecvClosure(client) == 0) {
 				if (close_clients == NULL )
 					close_clients = list_create();
@@ -424,6 +416,7 @@ void sockets_select(t_list* servers, t_list* clients, int usec_timeout,
 			}
 		}
 	}
+
 	if (clients != NULL && list_size(clients) > 0) {
 		list_iterate(clients, (void*) &closure_recvFromSocket);
 		if (close_clients != NULL ) {
@@ -436,7 +429,8 @@ void sockets_select(t_list* servers, t_list* clients, int usec_timeout,
 				list_remove_by_condition(clients,
 						(void*) &closure_removeSocket);
 			}
-			list_destroy(close_clients);
+			list_destroy_and_destroy_elements(close_clients,
+					(void*) sockets_destroyClient);
 		}
 	}
 }
