@@ -18,21 +18,22 @@
 #include "Personaje.h"
 
 void personaje_perder_vida(int n);
+bool verificar_argumentos(int argc, char* argv[]);
 
 t_personaje* self;
 
 int main(int argc, char* argv[]) {
-	//TODO verificar argumentos or else
-//	if (!verificar_argumentos(argv)) {
-//		printf("Error en la cantidad de argumentos\n");
-//		return EXIT_FAILURE;
-//	}
+
+	if (!verificar_argumentos(argc, argv)) {
+		return EXIT_FAILURE;
+	}
 
 	self = personaje_create(argv[1]);
 	signal(SIGUSR1, &personaje_perder_vida);
 	printf("Personaje creado\n");
 
-	t_socket_client* socket_orquestador = sockets_createClient(NULL, self->puerto);
+	t_socket_client* socket_orquestador = sockets_createClient(NULL,
+			self->puerto);
 
 	if (socket_orquestador == NULL ) {
 		personaje_destroy(self);
@@ -165,4 +166,12 @@ void nivel_destroy(t_nivel* self) {
 	t_connection_destroy(self->data);
 	t_connection_destroy(self->planificador);
 	free(self);
+}
+
+bool verificar_argumentos(int argc, char* argv[]) {
+	if (argc < 2) {
+		printf("Error en la cantidad de argumentos.\n");
+		return false;
+	}
+	return true;
 }
