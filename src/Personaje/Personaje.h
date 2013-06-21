@@ -19,6 +19,7 @@ typedef struct {
 	t_dictionary* objetivos;
 	int vidas;
 	t_connection_info* orquestador;
+	int puerto;
 } t_personaje;
 
 typedef struct {

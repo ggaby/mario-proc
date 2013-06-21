@@ -17,8 +17,6 @@
 #include <commons/string.h>
 #include "Personaje.h"
 
-#define PORT 5001
-
 void personaje_perder_vida(int n);
 
 t_personaje* self;
@@ -34,7 +32,7 @@ int main(int argc, char* argv[]) {
 	signal(SIGUSR1, &personaje_perder_vida);
 	printf("Personaje creado\n");
 
-	t_socket_client* socket_orquestador = sockets_createClient(NULL, PORT);
+	t_socket_client* socket_orquestador = sockets_createClient(NULL, self->puerto);
 
 	if (socket_orquestador == NULL ) {
 		personaje_destroy(self);
@@ -123,6 +121,7 @@ t_personaje* personaje_create(char* config_path) {
 	new->vidas = config_get_int_value(config, "vidas");
 	new->orquestador = t_connection_new(
 			config_get_string_value(config, "orquestador"));
+	new->puerto = config_get_int_value(config, "puerto");
 	config_destroy(config);
 	free(s);
 	return new;

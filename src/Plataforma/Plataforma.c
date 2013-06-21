@@ -12,9 +12,11 @@
 #include <commons/string.h>
 
 #define PORT 5000
+#define PUERTO_ORQUESTADOR 5000
+#define PUERTO_PLATAFORMA 5001
 
 int main(int argc, char* argv[]) {
-	t_socket_server* server = sockets_createServer(NULL, PORT);
+	t_socket_server* server = sockets_createServer(NULL, PUERTO_ORQUESTADOR);
 
 	if (!sockets_listen(server)) {
 		printf("No se puede escuchar\n");
