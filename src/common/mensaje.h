@@ -13,6 +13,7 @@
 #include "sockets.h"
 #include <string.h>
 
+#define PERSONAJE_HANDSHAKE "Aquí un personaje"
 #define M_HANDSHAKE 1
 #define M_ERROR 2
 
