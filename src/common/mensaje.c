@@ -5,11 +5,10 @@
  *      Author: reyiyo
  */
 
+#include "common_structs.h"
 #include "mensaje.h"
-#include <assert.h>
 #include <stdio.h>
-#include <err.h>
-#include <errno.h>
+#include <commons/string.h>
 
 t_mensaje* mensaje_create(uint8_t type) {
 	t_mensaje* mensaje = (t_mensaje*) malloc(sizeof(t_mensaje));
@@ -33,6 +32,41 @@ void mensaje_destroy(t_mensaje* mensaje) {
 	free(mensaje->payload);
 	free(mensaje);
 }
+
+//TODO en esta serialización hay algo mal... lo dejo comentado por si
+//sive en el futuro
+
+
+//t_stream* t_connection_info_serialize(t_connection_info* self) {
+//	char* data = malloc(sizeof(uint32_t) + strlen(self->ip) + 1);
+//	t_stream* stream = malloc(sizeof(t_stream));
+//	int tmpsize, offset = 0;
+//
+//	memcpy(data, &self->ip, tmpsize = strlen(self->ip) + 1);
+//	offset = tmpsize;
+//
+//	memcpy(data + offset, &self->puerto, tmpsize = sizeof(uint32_t));
+//
+//	stream->length = offset + tmpsize;
+//	stream->data = data;
+//	printf("%s\n", data);
+//
+//	return stream;
+//}
+//
+//t_connection_info* t_connection_info_deserialize(char* data) {
+//	t_connection_info* self = malloc(sizeof(t_connection_info));
+//	int tmpsize, offset = 0;
+//
+//	for (tmpsize = 1; (data + offset)[tmpsize -1] != '\0'; tmpsize++);
+//	self->ip = malloc(tmpsize);
+//	memcpy(&self->ip, data + offset, tmpsize);
+//	offset += tmpsize;
+//
+//	memcpy(&self->puerto, data + offset, sizeof(uint32_t));
+//
+//	return self;
+//}
 
 t_socket_buffer* mensaje_serializer(t_mensaje* mensaje) {
 	int tmpsize, offset = 0;
@@ -80,4 +114,21 @@ void mensaje_send(t_mensaje* mensaje, t_socket_client* client) {
 	t_socket_buffer* buffer = mensaje_serializer(mensaje);
 	sockets_sendBuffer(client, buffer);
 	sockets_bufferDestroy(buffer);
+}
+
+t_connection_info* t_connection_new(char* ip_y_puerto) {
+	t_connection_info* new = malloc(sizeof(t_connection_info));
+	char** tokens = string_split(ip_y_puerto, ":");
+	new->ip = string_duplicate(tokens[0]);
+	new->puerto = atoi(tokens[1]);
+	array_destroy(tokens);
+	return new;
+}
+
+char* t_connection_info_to_string(t_connection_info* connection) {
+	return string_from_format("%s:%d", connection->ip, connection->puerto);
+}
+void t_connection_destroy(t_connection_info* self) {
+	free(self->ip);
+	free(self);
 }

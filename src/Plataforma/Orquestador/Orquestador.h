@@ -14,5 +14,8 @@
 
 int handshake(t_socket_client* client, t_mensaje *rq);
 void mostrar_mensaje(t_mensaje* mensaje, t_socket_client* client);
+void process_request(t_mensaje* request, t_socket_client* client);
+void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client);
+void orquestador_send_error_message(char* error_description, t_socket_client* client);
 
 #endif /* ORQUESTADOR_H_ */

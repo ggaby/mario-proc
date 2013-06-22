@@ -12,8 +12,6 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
-#include "../common/sockets.h"
-#include "../common/mensaje.h"
 #include <commons/string.h>
 #include "Personaje.h"
 
@@ -83,17 +81,58 @@ int main(int argc, char* argv[]) {
 	printf("DATA: %s\n", (char*) rta_handshake->payload);
 	mensaje_destroy(rta_handshake);
 
-	t_mensaje* mensaje2 = mensaje_create(2);
-	mensaje_setdata(mensaje2, strdup("Aquí un personaje otra vez"),
-			strlen("Aquí un personaje otra vez") + 1);
-	printf("DATA: %s\n", (char*) mensaje_getdata(mensaje2));
-	mensaje_send(mensaje2, socket_orquestador);
-	mensaje_destroy(mensaje2);
+	t_connection_info* nivel = personaje_get_info_nivel(socket_orquestador);
 
+	if (nivel != NULL) {
+		t_connection_destroy(nivel);
+	}
 	personaje_destroy(self);
 	sockets_destroyClient(socket_orquestador);
+
 	printf("Conexión terminada\n");
 	return EXIT_SUCCESS;
+}
+
+t_connection_info* personaje_get_info_nivel(t_socket_client* orquestador) {
+	t_mensaje* request = mensaje_create(M_GET_INFO_NIVEL_REQUEST);
+	mensaje_setdata(request, strdup(self->plan_de_niveles[0]),
+			strlen(self->plan_de_niveles[0]) + 1);
+	printf("DATA: %s\n", (char*) mensaje_getdata(request));
+	mensaje_send(request, orquestador);
+	mensaje_destroy(request);
+
+	printf("Recibiendo Info nivel\n");
+	t_socket_buffer* buffer = sockets_recv(orquestador);
+
+	if (buffer == NULL ) {
+		printf("Error en el resultado\n");
+		free(buffer);
+		return NULL ;
+	}
+
+	t_mensaje* response = mensaje_deserializer(buffer, 0);
+	sockets_bufferDestroy(buffer);
+
+	if (response->type == M_ERROR) {
+		printf("Error: %s\n", (char*) response->payload);
+		mensaje_destroy(response);
+		return NULL;
+	}
+
+	if (response->type != M_GET_INFO_NIVEL_RESPONSE) {
+		printf("Error desconocido\n");
+		mensaje_destroy(response);
+		return NULL;
+	}
+
+	t_connection_info* nivel = t_connection_new(response->payload);
+
+	printf("TYPE: %d\n", response->type);
+	printf("LENGHT: %d\n", response->length);
+	printf("DATA: IP: %s, PUERTO: %d\n", nivel->ip, nivel->puerto);
+	mensaje_destroy(response);
+
+	return nivel;
 }
 
 void personaje_perder_vida(int n) {

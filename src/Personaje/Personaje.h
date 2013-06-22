@@ -9,6 +9,8 @@
 #define PERSONAJE_H_
 
 #include "../common/common_structs.h"
+#include "../common/mensaje.h"
+#include "../common/sockets.h"
 #include <commons/collections/dictionary.h>
 #include <commons/config.h>
 
@@ -33,5 +35,6 @@ t_nivel* nivel_create(t_connection_info* nivel, t_connection_info* planificador)
 void nivel_destroy(t_nivel* self);
 t_dictionary* _personaje_load_objetivos(t_config* config,
 		char** plan_de_niveles);
+t_connection_info* personaje_get_info_nivel(t_socket_client* orquestador);
 
 #endif /* PERSONAJE_H_ */

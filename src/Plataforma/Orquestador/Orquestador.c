@@ -54,8 +54,8 @@ void* orquestador(void* name) {
 		}
 
 		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
-		//HACER ALGO
 		mostrar_mensaje(mensaje, client);
+		process_request(mensaje, client);
 
 		mensaje_destroy(mensaje);
 		sockets_bufferDestroy(buffer);
@@ -74,6 +74,30 @@ void* orquestador(void* name) {
 	printf("Orquestador: Server cerrado correctamente.\n");
 	return (void*) EXIT_SUCCESS;
 
+}
+
+void process_request(t_mensaje* request, t_socket_client* client) {
+	if (request->type == M_GET_INFO_NIVEL_REQUEST) {
+		return orquestador_get_info_nivel(request, client);
+	} else {
+		printf("Orquestador: Request desconocido: %d", request->type);
+		return orquestador_send_error_message("Request desconocido", client);
+	}
+}
+
+void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client) {
+	char* nivel = (char*) request->payload;
+	t_mensaje* response = mensaje_create(M_GET_INFO_NIVEL_RESPONSE);
+	mensaje_setdata(response, string_duplicate("213.456.789.123:8080"), strlen("213.456.789.123:8080") +1);
+	mensaje_send(response, client);
+	mensaje_destroy(response);
+}
+
+void orquestador_send_error_message(char* error_description, t_socket_client* client) {
+	t_mensaje* response = mensaje_create(M_ERROR);
+	mensaje_setdata(response, strdup(error_description), strlen(error_description) + 1);
+	mensaje_send(response, client);
+	mensaje_destroy(response);
 }
 
 int handshake(t_socket_client* client, t_mensaje *rq) {
