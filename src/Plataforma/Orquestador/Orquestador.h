@@ -12,6 +12,7 @@
 #include "../../common/mensaje.h"
 #include <commons/collections/list.h>
 
+void* orquestador(void* plat);
 int handshake(t_socket_client* client, t_mensaje *rq);
 void mostrar_mensaje(t_mensaje* mensaje, t_socket_client* client);
 void process_request(t_mensaje* request, t_socket_client* client);

@@ -23,6 +23,7 @@
 //Contenidos de Mensajes
 #define PERSONAJE_HANDSHAKE "Aquí un personaje"
 #define NIVEL_HANDSHAKE "Aqui un nivel"
+#define HANDSHAKE_SUCCESS "OK"
 
 typedef struct t_stream {
 	int length;
