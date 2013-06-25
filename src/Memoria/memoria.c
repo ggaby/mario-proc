@@ -8,16 +8,6 @@ typedef struct {
 	t_particion* particion;
 } t_fragmento;
 
-int crear_particion_nueva(t_memoria segmento, char id, int tamanio,
-		char* contenido);
-t_fragmento* buscar_la_primera_que_entre(int tamanio);
-t_fragmento* buscar_elemento(char id);
-int guardar_datos(t_fragmento* guardar_aca, t_memoria segmento, char id,
-		char* contenido);
-t_fragmento* fragmento_create(char id, int tamanio, int inicio);
-void fragmento_destroy(t_fragmento* self);
-
-
 t_list* listaParticiones;
 
 int last_pos_segmento; //Lo necesitas por Next-Fit
@@ -25,13 +15,15 @@ int libre;
 int actual_index_particiones;
 int tamanioSegmento;
 
-/*void llenarBuraco(int inicio, int tamanio) {
- t_particion *nuevaParticion = (t_particion*) malloc(sizeof(t_particion));
- nuevaParticion->inicio = inicio;
- nuevaParticion->libre = true;
- nuevaParticion->tamanio = tamanio;
- list_add_in_index(listaParticiones, inicio ,(void*)nuevaParticion);
- }*/
+int crear_particion_nueva(t_memoria segmento, char id, int tamanio,
+		char* contenido, bool ocupado);
+t_fragmento* buscar_la_primera_que_entre(int tamanio);
+t_fragmento* buscar_elemento(char id);
+int guardar_datos(t_fragmento* guardar_aca, t_memoria segmento, char id,
+		char* contenido);
+t_fragmento* fragmento_create(char id, int tamanio, int inicio, char* contenido, bool ocupado);
+void fragmento_destroy(t_fragmento* self);
+
 
 t_memoria crear_memoria(int tamanio) {
 	tamanioSegmento = tamanio;
@@ -52,7 +44,7 @@ int almacenar_particion(t_memoria segmento, char id, int tamanio,
 	}
 
 	if (tamanio <= libre) {
-		return crear_particion_nueva(segmento, id, tamanio, contenido);
+		return crear_particion_nueva(segmento, id, tamanio, contenido, false);
 	} else {
 		t_fragmento* guardar_aca = buscar_la_primera_que_entre(tamanio);
 		if (guardar_aca == NULL ) {
@@ -73,25 +65,27 @@ int eliminar_particion(t_memoria segmento, char id) {
 
 void liberar_memoria(t_memoria segmento) {
 	free(segmento);
-	list_destroy_and_destroy_elements(listaParticiones, (void*) fragmento_destroy);
+	list_destroy_and_destroy_elements(listaParticiones,
+			(void*) fragmento_destroy);
 }
 
 t_list* particiones(t_memoria segmento) {
-	t_particion* get_particion(t_fragmento* elem){
+	t_particion* get_particion(t_fragmento* elem) {
 		return elem->particion;
 	}
 
 	if (libre > 0) {
-		crear_particion_nueva(segmento, '0', libre, "");
+		crear_particion_nueva(segmento, '0', libre, "", true);
 	}
 	t_list *listaPantalla = list_map(listaParticiones, (void*) get_particion);
 	return listaPantalla;
 }
 
 int crear_particion_nueva(t_memoria segmento, char id, int tamanio,
-		char* contenido) {
+		char* contenido, bool ocupado) {
 
-	t_fragmento* nuevo = fragmento_create(id, tamanio, last_pos_segmento);
+	t_fragmento* nuevo = fragmento_create(id, tamanio, last_pos_segmento,
+			contenido, ocupado);
 	char* lugar_del_segmento = segmento + last_pos_segmento;
 	strcpy(lugar_del_segmento, contenido);
 	last_pos_segmento += tamanio;
@@ -139,12 +133,14 @@ int guardar_datos(t_fragmento* guardar_aca, t_memoria segmento, char id,
 	return 1;
 }
 
-t_fragmento* fragmento_create(char id, int tamanio, int inicio) {
+t_fragmento* fragmento_create(char id, int tamanio, int inicio, char* contenido, bool ocupado) {
 	t_particion* particion = malloc(sizeof(t_particion));
 	particion->id = id;
 	particion->tamanio = tamanio;
-	particion->libre = false;
+	particion->libre = ocupado;
 	particion->inicio = inicio;
+	particion->dato = malloc(tamanio);
+	strncpy(particion->dato, contenido, strlen(contenido));
 
 	t_fragmento* new = malloc(sizeof(t_fragmento));
 	new->index = -1;
@@ -157,4 +153,6 @@ void fragmento_destroy(t_fragmento* self) {
 	free(self->particion);
 	free(self);
 }
+
+
 
