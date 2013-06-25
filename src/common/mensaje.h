@@ -10,14 +10,19 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include "sockets.h"
 #include <string.h>
 
-#define PERSONAJE_HANDSHAKE "Aquí un personaje"
+//Tipos de Mensajes
 #define M_HANDSHAKE 1
 #define M_ERROR 2
 #define M_GET_INFO_NIVEL_REQUEST 3
 #define M_GET_INFO_NIVEL_RESPONSE 4
+
+//Contenidos de Mensajes
+#define PERSONAJE_HANDSHAKE "Aquí un personaje"
+#define NIVEL_HANDSHAKE "Aqui un nivel"
 
 typedef struct t_stream {
 	int length;
@@ -44,6 +49,7 @@ t_socket_buffer* mensaje_serializer(t_mensaje* mensaje);
 t_mensaje* mensaje_deserializer(t_socket_buffer* buffer, uint32_t dataStart);
 t_mensaje* mensaje_clone(t_mensaje* mensaje);
 void mensaje_send(t_mensaje* mensaje, t_socket_client *client);
+bool mensaje_validar_handshake(t_socket_client* client, t_mensaje *rq, char* handshakeEsperado);
 t_connection_info* t_connection_new(char* ip_y_puerto);
 void t_connection_destroy(t_connection_info* self);
 //t_stream* t_connection_info_serialize(t_connection_info* self);

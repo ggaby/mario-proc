@@ -37,7 +37,7 @@ void* orquestador(void* name) {
 
 		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
 		sockets_bufferDestroy(buffer);
-		if (!handshake(client, mensaje)) {
+		if (!mensaje_validar_handshake(client, mensaje, PERSONAJE_HANDSHAKE)) {
 			mensaje_destroy(mensaje);
 			sockets_destroyClient(client);
 			return NULL ;
@@ -99,7 +99,7 @@ void orquestador_send_error_message(char* error_description, t_socket_client* cl
 	mensaje_send(response, client);
 	mensaje_destroy(response);
 }
-
+/*
 int handshake(t_socket_client* client, t_mensaje *rq) {
 	if (rq->type != M_HANDSHAKE) {
 		printf("Handshake inválido!\n");
@@ -118,7 +118,7 @@ int handshake(t_socket_client* client, t_mensaje *rq) {
 	mensaje_destroy(mensaje);
 	return true;
 }
-
+*/
 void mostrar_mensaje(t_mensaje* mensaje, t_socket_client* client) {
 	printf("Mensaje recibido del socket: %d", client->socket->desc);
 	printf("TYPE: %d\n", mensaje->type);

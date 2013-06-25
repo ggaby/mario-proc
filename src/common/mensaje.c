@@ -116,6 +116,25 @@ void mensaje_send(t_mensaje* mensaje, t_socket_client* client) {
 	sockets_bufferDestroy(buffer);
 }
 
+bool mensaje_validar_handshake(t_socket_client* client, t_mensaje *rq, char* handshakeEsperado){
+	if (rq->type != M_HANDSHAKE) {
+			printf("Handshake inválido!\n");
+			//log_warning(log, "FSLISTENER", "Handshake invalido");
+			return false;
+		}
+		if (!string_equals_ignore_case((char*) rq->payload, handshakeEsperado)) {
+			printf("Handshake inválido!\n");
+			//log_warning(log, "FSLISTENER", "Handshake invalido");
+			return false;
+		}
+		printf("Hanshake válido!\n");
+		t_mensaje* mensaje = mensaje_create(M_HANDSHAKE);
+		mensaje_setdata(mensaje, strdup("OK"), strlen("OK") + 1);
+		mensaje_send(mensaje, client);
+		mensaje_destroy(mensaje);
+		return true;
+}
+
 t_connection_info* t_connection_new(char* ip_y_puerto) {
 	t_connection_info* new = malloc(sizeof(t_connection_info));
 	char** tokens = string_split(ip_y_puerto, ":");

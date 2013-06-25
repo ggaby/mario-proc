@@ -1,15 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <signail.h>
+#include <signal.h>
 #include <unistd.h>
-#include "nivel.h"
-#include "../common/socket.h"
+#include "Nivel.h"
+#include "../common/sockets.h"
 #include <commons/string.h>
 
 //Cambiar por el puerto del archico de configuracion correspondiente
 #define PORT 5001
+
+t_nivel* self;
+
 int main (int argc,char *argv[])
 {
+	//TODO Validar parametros
 	self = nivel_create(argv[1]);
 
 	//Se crea un socket que se conecta a plataforma,
@@ -25,11 +29,11 @@ int main (int argc,char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	//Si se pierde la coneccion a plataforma,
+	//Si no puede conectarse al orquestador,
 	//se borra el socket que se creo
-	if(sockets_connect(socket_orquestador,self->orquestador->ip, self->orquestador->port) == 0)
+	if(sockets_connect(socket_orquestador,self->orquestador->ip, self->orquestador->puerto) == 0)
 	{
-		socket_destroyClient(socket_orquestador);
+		sockets_destroyClient(socket_orquestador);
 		nivel_destroy(self);
 		return EXIT_FAILURE;
 	}
@@ -39,8 +43,9 @@ int main (int argc,char *argv[])
 	//LA LOGICA ES PRIMERO SE COMUNICA CON EL ORQUESTADOR
 	//LUEGO SE PONE A ESCUCHAR PERSONAJES
 	t_mensaje* mensaje = mensaje_create(M_HANDSHAKE);
-	mensaje_setdata(mensaje, strdup(DATA_NIVEL_HANDSHAKE),
-			strlen(DATA_NIVEL_HANDSHAKE) + 1);
+	mensaje_setdata(mensaje, strdup(NIVEL_HANDSHAKE),
+			strlen(NIVEL_HANDSHAKE) + 1);
+
 	printf("DATA: %s\n", (char*) mensaje_getdata(mensaje));
 	mensaje_send(mensaje, socket_orquestador);
 	mensaje_destroy(mensaje);
@@ -58,8 +63,6 @@ int main (int argc,char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	//Si el mensaje que recibe no se destrullo porque es NULL,
-	//se para hacer la accion
 	t_mensaje* rta_handshake = mensaje_deserializer(buffer, 0);
 	sockets_bufferDestroy(buffer);
 
@@ -77,23 +80,17 @@ int main (int argc,char *argv[])
 	printf("DATA: %s\n", (char*) rta_handshake->payload);
 	mensaje_destroy(rta_handshake);
 
+	printf("Conectado a la Plataforma\n");
 
+	//Se crea un socket para escuchar conexiones
 
-	//Se termina de conectarse a plataforma el proceso nivel en este caso es cliente---------------------
-
-	
-
-
-	//-------------Se crea un socket nivel que en este caso es servidor------------------------
-
-			
-	//Se empieza a recibir personajes
 	t_socket_server* server = sockets_createServer(NULL, PORT);
-	printf("Conectado con el orquestador\n");
 
 	if (!sockets_listen(server)) {
 		printf("No se puede escuchar\n");
 		sockets_destroyServer(server);
+		sockets_destroyClient(socket_orquestador);
+		nivel_destroy(self);
 		return EXIT_FAILURE;
 	}
 
@@ -102,7 +99,7 @@ int main (int argc,char *argv[])
 	t_list *servers = list_create();
 	list_add(servers, server);
 
-	//Se aceptan el mensajes del servidor
+	//closure que maneja las nuevas conexiones
 	t_socket_client* acceptClosure(t_socket_server* server) {
 		t_socket_client* client = sockets_accept(server);
 		t_socket_buffer* buffer = sockets_recv(client);
@@ -115,7 +112,7 @@ int main (int argc,char *argv[])
 
 		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
 		sockets_bufferDestroy(buffer);
-		if (!handshake(client, mensaje)) {
+		if (!mensaje_validar_handshake(client, mensaje, NIVEL_HANDSHAKE)) {
 			mensaje_destroy(mensaje);
 			sockets_destroyClient(client);
 			return NULL ;
@@ -125,7 +122,7 @@ int main (int argc,char *argv[])
 		return client;
 	}
 	
-	//Se bloquea hasta recibir un mensaje del cliente, los personajes
+	//closure que maneja los mensajes recibidos
 	int recvClosure(t_socket_client* client) {
 		t_socket_buffer* buffer = sockets_recv(client);
 
@@ -134,15 +131,16 @@ int main (int argc,char *argv[])
 		}
 
 		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
+		sockets_bufferDestroy(buffer);
+
 		//TODO: hacer un case, por cada tipo de mensaje que manden los personajes y el orquestador
-		mostrar_mensaje(mens:je, client);
 
 		mensaje_destroy(mensaje);
-		sockets_bufferDestroy(buffer);
 		return true;
 	}
 	
 	t_list* clients = list_create();
+	list_add(clients, socket_orquestador);
 
 	while (true) {
 		printf("Entro al select\n");
@@ -151,28 +149,33 @@ int main (int argc,char *argv[])
 
 	list_destroy_and_destroy_elements(servers, (void*) sockets_destroyServer);
 	list_destroy_and_destroy_elements(clients, (void*) sockets_destroyClient);
-	printf("Server cerrado correctamente.\n");
-	//Se termina a recibir personajes, el nivel en este caso es servidor
 
-	//nivel_destroy(self);
-	//sockets_destroyClient(socket_orquestador);
-	//printf("Conexion terminada\n");
+	printf("Proceso Nivel: %s cerrado correctamente.\n", self->nombre);
+
+	nivel_destroy(self);
+
 	return EXIT_SUCCESS;
 }
 
 t_nivel* nivel_create(char* config_path){
 	t_nivel* new = malloc(sizeof(t_nivel));
 	t_config* config = config_create(config_path);
-	new->nombre = string_duplicate(config_get_string_value(config, "nombre"));
+	new->nombre = string_duplicate(config_get_string_value(config, "Nombre"));
+	new->tiempoChequeoDeadlock = config_get_int_value(config, "TiempoChequeoDeadlock");
+	new->recovery = config_get_int_value(config, "Recovery");
+
+	new->orquestador = t_connection_new(
+				config_get_string_value(config, "orquestador"));
+
 	//TODO Ver como se cargan los recursos
-	new->recovery = config_get_int_value(config, "recovery");
+
 	config_destroy(config);
-	free(s);
 	return new;
 }
 
 void nivel_destroy(t_nivel* self) {
-	t_connection_destroy(self->data);
-	t_connection_destroy(self->planificador);
+	free(self->nombre);
+	t_connection_destroy(self->orquestador);
+	//TODO Free de los recursos
 	free(self);
 }
