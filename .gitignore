@@ -26,3 +26,6 @@
 /Plataforma
 /Nivel
 /test
+
+#Log files
+*.log

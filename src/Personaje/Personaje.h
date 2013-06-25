@@ -13,6 +13,7 @@
 #include "../common/sockets.h"
 #include <commons/collections/dictionary.h>
 #include <commons/config.h>
+#include <commons/log.h>
 
 typedef struct {
 	char* nombre;
@@ -22,6 +23,7 @@ typedef struct {
 	int vidas;
 	t_connection_info* orquestador;
 	int puerto;
+	t_log* logger;
 } t_personaje;
 
 typedef struct {
@@ -36,5 +38,6 @@ void nivel_destroy(t_nivel* self);
 t_dictionary* _personaje_load_objetivos(t_config* config,
 		char** plan_de_niveles);
 t_connection_info* personaje_get_info_nivel(t_socket_client* orquestador);
+t_socket_client* personaje_conectar_a_orquestador();
 
 #endif /* PERSONAJE_H_ */

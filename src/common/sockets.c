@@ -278,9 +278,7 @@ void sockets_destroyClient(t_socket_client *client) {
 	if (!sockets_isConnected(client))
 		client->socket->desc = -1;
 	sockets_destroy(client->socket);
-	if (client->serv_socket != NULL ) {
-		sockets_destroy(client->serv_socket);
-	}
+
 	free(client);
 }
 

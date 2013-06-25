@@ -14,6 +14,7 @@
 #include <string.h>
 
 #define PERSONAJE_HANDSHAKE "Aquí un personaje"
+#define HANDSHAKE_SUCCESS "OK"
 #define M_HANDSHAKE 1
 #define M_ERROR 2
 #define M_GET_INFO_NIVEL_REQUEST 3
