@@ -21,7 +21,7 @@ t_fragmento* buscar_la_primera_que_entre(int tamanio);
 t_fragmento* buscar_elemento(char id);
 int guardar_datos(t_fragmento* guardar_aca, t_memoria segmento, char id,
 		char* contenido);
-t_fragmento* fragmento_create(char id, int tamanio, int inicio, char* contenido, bool ocupado);
+t_fragmento* fragmento_create(char id, int tamanio, int inicio, bool ocupado);
 void fragmento_destroy(t_fragmento* self);
 
 
@@ -60,7 +60,7 @@ int eliminar_particion(t_memoria segmento, char id) {
 		return 0;
 	}
 	eliminar->particion->libre = true;
-	return 0;
+	return 1;
 }
 
 void liberar_memoria(t_memoria segmento) {
@@ -84,10 +84,11 @@ t_list* particiones(t_memoria segmento) {
 int crear_particion_nueva(t_memoria segmento, char id, int tamanio,
 		char* contenido, bool ocupado) {
 
-	t_fragmento* nuevo = fragmento_create(id, tamanio, last_pos_segmento,
-			contenido, ocupado);
+	t_fragmento* nuevo = fragmento_create(id, tamanio, last_pos_segmento, ocupado);
 	char* lugar_del_segmento = segmento + last_pos_segmento;
 	strcpy(lugar_del_segmento, contenido);
+	nuevo->particion->dato = lugar_del_segmento;
+	memcpy(nuevo->particion->dato, lugar_del_segmento, tamanio);
 	last_pos_segmento += tamanio;
 	actual_index_particiones = list_add(listaParticiones, nuevo);
 	nuevo->index = actual_index_particiones;
@@ -133,14 +134,12 @@ int guardar_datos(t_fragmento* guardar_aca, t_memoria segmento, char id,
 	return 1;
 }
 
-t_fragmento* fragmento_create(char id, int tamanio, int inicio, char* contenido, bool ocupado) {
+t_fragmento* fragmento_create(char id, int tamanio, int inicio, bool ocupado) {
 	t_particion* particion = malloc(sizeof(t_particion));
 	particion->id = id;
 	particion->tamanio = tamanio;
 	particion->libre = ocupado;
 	particion->inicio = inicio;
-	particion->dato = malloc(tamanio);
-	strncpy(particion->dato, contenido, strlen(contenido));
 
 	t_fragmento* new = malloc(sizeof(t_fragmento));
 	new->index = -1;
