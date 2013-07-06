@@ -29,12 +29,12 @@ typedef struct {
 typedef struct {
 	t_connection_info* data;
 	t_connection_info* planificador;
-} t_nivel;
+} personaje_t_nivel;
 
 t_personaje* personaje_create(char* config_path);
 void personaje_destroy(t_personaje* self);
-t_nivel* nivel_create(t_connection_info* nivel, t_connection_info* planificador);
-void nivel_destroy(t_nivel* self);
+personaje_t_nivel* personaje_nivel_create(t_connection_info* nivel, t_connection_info* planificador);
+void personaje_nivel_destroy(personaje_t_nivel* self);
 t_dictionary* _personaje_load_objetivos(t_config* config,
 		char** plan_de_niveles);
 t_connection_info* personaje_get_info_nivel(t_socket_client* orquestador);

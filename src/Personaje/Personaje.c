@@ -202,7 +202,7 @@ t_socket_client* personaje_conectar_a_orquestador() {
 	log_info(self->logger, "Conectando con el orquestador...");
 	log_debug(self->logger, "Enviando handshake");
 
-	t_mensaje* mensaje = mensaje_create(M_HANDSHAKE);
+	t_mensaje* mensaje = mensaje_create(M_HANDSHAKE_PERSONAJE);
 	mensaje_setdata(mensaje, string_duplicate(PERSONAJE_HANDSHAKE),
 			strlen(PERSONAJE_HANDSHAKE) + 1);
 	mensaje_send(mensaje, socket_orquestador);
@@ -236,14 +236,16 @@ t_socket_client* personaje_conectar_a_orquestador() {
 	return socket_orquestador;
 }
 
-t_nivel* nivel_create(t_connection_info* nivel, t_connection_info* planificador) {
-	t_nivel* new = malloc(sizeof(t_nivel));
+//TODO verificar que se use
+personaje_t_nivel* personaje_nivel_create(t_connection_info* nivel, t_connection_info* planificador) {
+	personaje_t_nivel* new = malloc(sizeof(personaje_t_nivel));
 	new->data = nivel;
 	new->planificador = planificador;
 	return new;
 }
 
-void nivel_destroy(t_nivel* self) {
+//TODO verificar que se use
+void personaje_nivel_destroy(personaje_t_nivel* self) {
 	t_connection_destroy(self->data);
 	t_connection_destroy(self->planificador);
 	free(self);

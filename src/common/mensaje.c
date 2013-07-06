@@ -20,7 +20,7 @@ t_mensaje* mensaje_create(uint8_t type) {
 }
 
 void mensaje_setdata(t_mensaje* mensaje, void* data, uint16_t length) {
-	mensaje->length = length;
+	mensaje->length = length; //TODO porque no setear el length automagicamente como sizeof(data) ??
 	mensaje->payload = data;
 }
 
@@ -114,25 +114,6 @@ void mensaje_send(t_mensaje* mensaje, t_socket_client* client) {
 	t_socket_buffer* buffer = mensaje_serializer(mensaje);
 	sockets_sendBuffer(client, buffer);
 	sockets_bufferDestroy(buffer);
-}
-
-bool mensaje_validar_handshake(t_socket_client* client, t_mensaje *rq, char* handshakeEsperado){
-	if (rq->type != M_HANDSHAKE) {
-			printf("Handshake inválido!\n");
-			//log_warning(log, "FSLISTENER", "Handshake invalido");
-			return false;
-		}
-		if (!string_equals_ignore_case((char*) rq->payload, handshakeEsperado)) {
-			printf("Handshake inválido!\n");
-			//log_warning(log, "FSLISTENER", "Handshake invalido");
-			return false;
-		}
-		printf("Hanshake válido!\n");
-		t_mensaje* mensaje = mensaje_create(M_HANDSHAKE);
-		mensaje_setdata(mensaje, strdup("OK"), strlen("OK") + 1);
-		mensaje_send(mensaje, client);
-		mensaje_destroy(mensaje);
-		return true;
 }
 
 t_connection_info* t_connection_new(char* ip_y_puerto) {

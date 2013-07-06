@@ -15,10 +15,18 @@
 #include <string.h>
 
 //Tipos de Mensajes
-#define M_HANDSHAKE 1
-#define M_ERROR 2
-#define M_GET_INFO_NIVEL_REQUEST 3
-#define M_GET_INFO_NIVEL_RESPONSE 4
+//Handshakes (1-10)
+#define M_HANDSHAKE_PERSONAJE 1
+#define M_HANDSHAKE_NIVEL 2
+//Errores (11-20)
+#define M_ERROR 11
+//Request(21-40)
+#define M_GET_INFO_NIVEL_REQUEST 21
+#define M_GET_NOMBRE_NIVEL_REQUEST 22
+//Response(41-60)
+#define M_GET_INFO_NIVEL_RESPONSE 41
+#define M_HANDSHAKE_RESPONSE 42
+#define M_GET_NOMBRE_NIVEL_RESPONSE 43
 
 //Contenidos de Mensajes
 #define PERSONAJE_HANDSHAKE "Aquí un personaje"
@@ -50,7 +58,6 @@ t_socket_buffer* mensaje_serializer(t_mensaje* mensaje);
 t_mensaje* mensaje_deserializer(t_socket_buffer* buffer, uint32_t dataStart);
 t_mensaje* mensaje_clone(t_mensaje* mensaje);
 void mensaje_send(t_mensaje* mensaje, t_socket_client *client);
-bool mensaje_validar_handshake(t_socket_client* client, t_mensaje *rq, char* handshakeEsperado);
 t_connection_info* t_connection_new(char* ip_y_puerto);
 void t_connection_destroy(t_connection_info* self);
 //t_stream* t_connection_info_serialize(t_connection_info* self);
