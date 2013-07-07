@@ -75,6 +75,7 @@ void* planificador(void* args) {
 	pthread_mutex_lock(&plataforma->logger_mutex);
 	log_info(plataforma->logger, "%s: Server cerrado correctamente", log_name);
 	pthread_mutex_unlock(&plataforma->logger_mutex);
+	free(log_name);
 
 	return (void*) EXIT_SUCCESS;
 }
