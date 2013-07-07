@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <commons/log.h>
 #include "../common/sockets.h"
+#include "../common/mensaje.h"
 
 typedef struct{
 	char* nombre; //id del nivel

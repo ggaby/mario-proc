@@ -33,7 +33,7 @@ t_plataforma* plataforma_create() {
 
 void plataforma_nivel_destroy(plataforma_t_nivel* nivel){
 	free(nivel->nombre);
-	sockets_destroy(nivel->socket_nivel);
+	sockets_destroyClient(nivel->socket_nivel);
 	t_connection_destroy(nivel->planificador);
 	free(nivel);
 }
