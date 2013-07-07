@@ -8,9 +8,15 @@
 #ifndef ORQUESTADOR_H_
 #define ORQUESTADOR_H_
 
+#include "../Plataforma.h"
 #include "../../common/sockets.h"
 #include "../../common/mensaje.h"
 #include <commons/collections/list.h>
+
+typedef struct {
+	t_plataforma* plataforma;
+	plataforma_t_nivel* nivel;
+}thread_planificador_args;
 
 void* orquestador(void* plat);
 //int handshake(t_socket_client* client, t_mensaje *rq);

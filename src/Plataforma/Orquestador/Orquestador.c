@@ -11,7 +11,6 @@
 #include <pthread.h>
 #include <commons/string.h>
 #include "Orquestador.h"
-#include "../Plataforma.h"
 #include "../Planificador/Planificador.h"
 
 #define PUERTO_ORQUESTADOR 5000
@@ -152,11 +151,18 @@ void procesar_handshake_nivel(t_socket_client* socket_nivel){
 		mensaje = mensaje_deserializer(buffer, 0);
 		sockets_bufferDestroy(buffer);
 
-		plataforma_create_add_nivel(plataforma, mensaje->payload, socket_nivel, "127.0.0.1:9000"); //TODO To-do mal aca! cambiar la ip por la ip real.
+		plataforma_t_nivel* nivel = plataforma_create_add_nivel(plataforma, mensaje->payload, socket_nivel, "127.0.0.1:9000"); //TODO To-do mal aca! cambiar la ip por la ip real.
 
 		//creo un thread planificador
 		pthread_t thread_planificador;
-		pthread_create(&thread_planificador, NULL, planificador, (void*) plataforma);
+
+		thread_planificador_args* args = malloc(sizeof(thread_planificador_args));
+		args->plataforma = plataforma;
+		args->nivel = nivel;
+
+		pthread_create(&thread_planificador, NULL, planificador, (void*) args);
+		//TODO VER DONDE HACER EL JOIN DE LOS THREADS PLANIFICADORES!
+		//TODO VER DONDE HACER EL FREE de args (al iniciar planificador?)
 
 		pthread_mutex_lock(&plataforma->logger_mutex);
 				log_warning(plataforma->logger,
