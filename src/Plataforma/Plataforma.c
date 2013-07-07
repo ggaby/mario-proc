@@ -6,8 +6,9 @@
  */
 
 #include <stdlib.h>
-#include "Orquestador/Orquestador.h"
 #include "Plataforma.h"
+#include "Orquestador/Orquestador.h"
+#include "Planificador/Planificador.h"
 #include <commons/string.h>
 
 int main(int argc, char* argv[]) {
@@ -46,16 +47,27 @@ void plataforma_destroy(t_plataforma* self) {
 }
 
 
-plataforma_t_nivel* plataforma_create_add_nivel(t_plataforma* self, char* nombre_nivel, t_socket_client* socket_nivel, char* planificador_connection_info){
+int plataforma_create_nivel(t_plataforma* self, char* nombre_nivel, t_socket_client* socket_nivel, char* planificador_connection_info){
 
-	plataforma_t_nivel* new_nivel = malloc(sizeof(plataforma_t_nivel));
+	plataforma_t_nivel* new = malloc(sizeof(plataforma_t_nivel));
+	if (pthread_create(&new->thread_planificador, NULL, planificador, (void*) self) != 0) {
+		free(new);
+		pthread_mutex_lock(&self->logger_mutex);
+		log_error(self->logger, "Plataforma: No se pudo crear el thread planificador del nivel %s", nombre_nivel);
+		pthread_mutex_unlock(&self->logger_mutex);
+		return 1;
+	}
 
-	new_nivel->nombre = string_duplicate(nombre_nivel);
-	new_nivel->socket_nivel = socket_nivel;
-	new_nivel->planificador = t_connection_new(planificador_connection_info);
-	list_add(self->niveles, new_nivel);
+	pthread_mutex_lock(&self->logger_mutex);
+	log_debug(self->logger, "Plataforma: Planificador para el nivel %s creado", nombre_nivel);
+	pthread_mutex_unlock(&self->logger_mutex);
 
-	return new_nivel;
+	new->nombre = string_duplicate(nombre_nivel);
+	new->socket_nivel = socket_nivel;
+	new->planificador = t_connection_new(planificador_connection_info);
 
+	list_add(self->niveles, new);
+
+	return 0;
 }
 

@@ -55,19 +55,21 @@ void* orquestador(void* plat) {
 		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
 		sockets_bufferDestroy(buffer);
 
-		switch(mensaje->type){
-			case M_HANDSHAKE_PERSONAJE:
-				responder_handshake(client);
-				break;
-			case M_HANDSHAKE_NIVEL:
-				responder_handshake(client);
-				procesar_handshake_nivel(client);
-				break;
-			default:
-				pthread_mutex_lock(&plataforma->logger_mutex);
-				log_warning(plataforma->logger, "Orquestador: Error al recibir el handshake, tipo de mensaje no valido %d", mensaje->type);
-				pthread_mutex_unlock(&plataforma->logger_mutex);
-				return NULL; //TODO usar send_error_message!!
+		switch (mensaje->type) {
+		case M_HANDSHAKE_PERSONAJE:
+			responder_handshake(client);
+			break;
+		case M_HANDSHAKE_NIVEL:
+			responder_handshake(client);
+			procesar_handshake_nivel(client);
+			break;
+		default:
+			pthread_mutex_lock(&plataforma->logger_mutex);
+			log_warning(plataforma->logger,
+					"Orquestador: Error al recibir el handshake, tipo de mensaje no valido %d",
+					mensaje->type);
+			pthread_mutex_unlock(&plataforma->logger_mutex);
+			return NULL ; //TODO usar send_error_message!!
 		}
 
 		mensaje_destroy(mensaje);
@@ -140,7 +142,7 @@ void orquestador_send_error_message(char* error_description,
 	mensaje_destroy(response);
 }
 
-void procesar_handshake_nivel(t_socket_client* socket_nivel){
+void procesar_handshake_nivel(t_socket_client* socket_nivel) {
 
 	t_mensaje* mensaje = mensaje_create(M_GET_NOMBRE_NIVEL_REQUEST);
 	mensaje_send(mensaje, socket_nivel);
@@ -148,43 +150,36 @@ void procesar_handshake_nivel(t_socket_client* socket_nivel){
 
 	t_socket_buffer* buffer = sockets_recv(socket_nivel);
 
-	if (buffer != NULL) {
-		mensaje = mensaje_deserializer(buffer, 0);
-		sockets_bufferDestroy(buffer);
-
-		plataforma_create_add_nivel(plataforma, mensaje->payload, socket_nivel, "127.0.0.1:9000"); //TODO To-do mal aca! cambiar la ip por la ip real.
-
-		//creo un thread planificador
-		pthread_t thread_planificador;
-		pthread_create(&thread_planificador, NULL, planificador, (void*) plataforma);
-
-		pthread_mutex_lock(&plataforma->logger_mutex);
-				log_warning(plataforma->logger,
-						"Orquestador: Planificador creado");
-				pthread_mutex_unlock(&plataforma->logger_mutex);
-	}
-	else{
+	if (buffer == NULL ) {
 		sockets_destroyClient(socket_nivel);
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_warning(plataforma->logger,
 				"Orquestador: Error al recibir el nombre del nivel");
 		pthread_mutex_unlock(&plataforma->logger_mutex);
+		return;
 	}
+
+	mensaje = mensaje_deserializer(buffer, 0);
+	sockets_bufferDestroy(buffer);
+
+	if (mensaje->type != M_GET_NOMBRE_NIVEL_RESPONSE ) {
+		sockets_destroyClient(socket_nivel);
+		mensaje_destroy(mensaje);
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_error(plataforma->logger,
+				"Orquestador: Tipo de respuesta inválido");
+		pthread_mutex_unlock(&plataforma->logger_mutex);
+		return;
+	}
+
+	if (plataforma_create_nivel(plataforma, mensaje->payload, socket_nivel,
+			"127.0.0.1:9000") != 0) { //TODO To-do mal aca! cambiar la ip por la ip real.
+		sockets_destroyClient(socket_nivel);
+	}
+	mensaje_destroy(mensaje);
 }
 
-void responder_handshake(t_socket_client* client/*, t_mensaje *rq*/) {
-//	if (rq->type != M_HANDSHAKE) {
-//		pthread_mutex_lock(&plataforma->logger_mutex);
-//		log_warning(plataforma->logger, "Orquestador: Handshake de personaje inválido!");
-//		pthread_mutex_unlock(&plataforma->logger_mutex);
-//		return false;
-//	}
-//	if (!string_equals_ignore_case((char*) rq->payload, PERSONAJE_HANDSHAKE)) {
-//		pthread_mutex_lock(&plataforma->logger_mutex);
-//		log_warning(plataforma->logger, "Orquestador: Handshake de personaje inválido!");
-//		pthread_mutex_unlock(&plataforma->logger_mutex);
-//		return false;
-//	}
+void responder_handshake(t_socket_client* client) {
 	pthread_mutex_lock(&plataforma->logger_mutex);
 	log_info(plataforma->logger,
 			"Orquestador: Cliente conectado por el socket %d",
@@ -195,7 +190,6 @@ void responder_handshake(t_socket_client* client/*, t_mensaje *rq*/) {
 			strlen(HANDSHAKE_SUCCESS) + 1);
 	mensaje_send(mensaje, client);
 	mensaje_destroy(mensaje);
-//	return true;
 }
 
 void mostrar_mensaje(t_mensaje* mensaje, t_socket_client* client) {
