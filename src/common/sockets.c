@@ -437,3 +437,57 @@ void sockets_destroyServer(t_socket_server* server) {
 	sockets_destroy(server->socket);
 	free(server);
 }
+
+/**
+ * Crea un server y lo pone a escuchar conexiones entrantes.
+ */
+bool sockets_create_little_server(char* ip, int puerto, t_log* logger, pthread_mutex_t* log_mutex, char* log_name,
+		t_list *servers, t_list* clients,
+		t_socket_client *(*onAcceptClosure)(t_socket_server*),
+		int (*onRecvClosure)(t_socket_client*)){
+
+	t_socket_server* server = sockets_createServer(ip, puerto);
+
+	if (!sockets_listen(server)) {
+		if(log_mutex != NULL){
+			pthread_mutex_lock(log_mutex);
+		}
+		log_error(logger, "%s: No se puede escuchar", log_name);
+
+		if(log_mutex != NULL){
+			pthread_mutex_unlock(log_mutex);
+		}
+
+		sockets_destroyServer(server);
+		return false;
+	}
+
+	if(log_mutex != NULL){
+		pthread_mutex_lock(log_mutex);
+	}
+
+	log_info(logger, "%s: Escuchando conexiones entrantes en %s:%d",
+			log_name, ip, puerto);
+
+	if(log_mutex != NULL){
+		pthread_mutex_unlock(log_mutex);
+	}
+
+	list_add(servers, server);
+
+	while (true) {
+		if(log_mutex != NULL){
+			pthread_mutex_lock(log_mutex);
+		}
+		log_debug(logger, "%s: Entro al select", log_name);
+
+		if(log_mutex != NULL){
+			pthread_mutex_unlock(log_mutex);
+		}
+
+		sockets_select(servers, clients, 0, onAcceptClosure, onRecvClosure);
+	}
+
+	return true;
+
+}

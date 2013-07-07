@@ -13,6 +13,8 @@
 #include <sys/select.h>
 #include <netinet/in.h>
 #include <commons/collections/list.h>
+#include <commons/log.h>
+#include <pthread.h>
 
 #define DEFAULT_BUFFER_SIZE 	1500
 #define DEFAULT_MAX_CONEXIONS 	100
@@ -103,5 +105,10 @@ void sockets_select(t_list* servers, t_list *clients, int usec_timeout,
 		t_socket_client *(*onAcceptClosure)(t_socket_server*),
 		int (*onRecvClosure)(t_socket_client*));
 void sockets_destroyServer(t_socket_server* server);
+
+bool sockets_create_little_server(char* ip, int puerto, t_log* logger, pthread_mutex_t* log_mutex, char* log_name,
+		t_list *servers, t_list* clients,
+		t_socket_client *(*onAcceptClosure)(t_socket_server*),
+		int (*onRecvClosure)(t_socket_client*));
 
 #endif /* OLD_SOCKETS_H_ */
