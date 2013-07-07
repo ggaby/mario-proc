@@ -20,7 +20,6 @@ t_plataforma* plataforma;
 
 void* orquestador(void* plat) {
 	plataforma = (t_plataforma*) plat;
-	t_orquestador* self = orquestador_create();
 
 	t_socket_server* server = sockets_createServer(NULL, PUERTO_ORQUESTADOR);
 
@@ -30,7 +29,6 @@ void* orquestador(void* plat) {
 		log_error(plataforma->logger, "Orquestador: No se puede escuchar");
 		pthread_mutex_unlock(&plataforma->logger_mutex);
 		sockets_destroyServer(server);
-		orquestador_destroy(self);
 	}
 
 	pthread_mutex_lock(&plataforma->logger_mutex);
@@ -63,7 +61,7 @@ void* orquestador(void* plat) {
 				break;
 			case M_HANDSHAKE_NIVEL:
 				responder_handshake(client);
-				procesar_handshake_nivel(self, client);
+				procesar_handshake_nivel(client);
 				break;
 			default:
 				pthread_mutex_lock(&plataforma->logger_mutex);
@@ -124,17 +122,6 @@ void process_request(t_mensaje* request, t_socket_client* client) {
 	}
 }
 
-t_orquestador* orquestador_create(){
-	t_orquestador* new = malloc(sizeof(t_orquestador));
-	new->niveles = list_create();
-	return new;
-}
-
-void orquestador_destroy(t_orquestador* self){
-	list_destroy(self->niveles); // TODO no tengo que usar el destroy elements?? :S
-	free(self);
-}
-
 void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client) {
 	//char* nivel = (char*) request->payload; TODO no se estaba usando esta variable
 	t_mensaje* response = mensaje_create(M_GET_INFO_NIVEL_RESPONSE);
@@ -153,7 +140,7 @@ void orquestador_send_error_message(char* error_description,
 	mensaje_destroy(response);
 }
 
-void procesar_handshake_nivel(t_orquestador* self, t_socket_client* socket_nivel){
+void procesar_handshake_nivel(t_socket_client* socket_nivel){
 
 	t_mensaje* mensaje = mensaje_create(M_GET_NOMBRE_NIVEL_REQUEST);
 	mensaje_send(mensaje, socket_nivel);
@@ -165,9 +152,7 @@ void procesar_handshake_nivel(t_orquestador* self, t_socket_client* socket_nivel
 		mensaje = mensaje_deserializer(buffer, 0);
 		sockets_bufferDestroy(buffer);
 
-		t_connection_info* planificador = t_connection_new("127.0.0.1:9000");//TODO To-do mal aca! cambiar la ip por la ip real.
-
-		/*orquestador_t_nivel* nivel = */orquestador_create_add_nivel(self, mensaje->payload, socket_nivel, "127.0.0.1:9000");
+		plataforma_create_add_nivel(plataforma, mensaje->payload, socket_nivel, "127.0.0.1:9000"); //TODO To-do mal aca! cambiar la ip por la ip real.
 
 		//creo un thread planificador
 		pthread_t thread_planificador;
@@ -185,19 +170,6 @@ void procesar_handshake_nivel(t_orquestador* self, t_socket_client* socket_nivel
 				"Orquestador: Error al recibir el nombre del nivel");
 		pthread_mutex_unlock(&plataforma->logger_mutex);
 	}
-}
-
-orquestador_t_nivel* orquestador_create_add_nivel(t_orquestador* self, char* nombre_nivel, t_socket_client* nivel, char* planificador_connection_info){
-
-	orquestador_t_nivel* new_nivel = malloc(sizeof(orquestador_t_nivel));
-
-	new_nivel->nombre = string_duplicate(nombre_nivel);
-	new_nivel->nivel = nivel;
-	new_nivel->planificador = t_connection_new(planificador_connection_info);
-
-	list_add(self->niveles, new_nivel);
-	return new_nivel;
-
 }
 
 void responder_handshake(t_socket_client* client/*, t_mensaje *rq*/) {

@@ -10,14 +10,22 @@
 
 #include <pthread.h>
 #include <commons/log.h>
+#include "../common/sockets.h"
+
+typedef struct{
+	char* nombre; //id del nivel
+	t_socket_client* socket_nivel;
+	t_connection_info* planificador;
+} plataforma_t_nivel;
 
 typedef struct {
 	t_log* logger;
 	pthread_mutex_t logger_mutex;
+	t_list* niveles;
 } t_plataforma;
-
 
 t_plataforma* plataforma_create();
 void plataforma_destroy(t_plataforma* self);
+plataforma_t_nivel* plataforma_create_add_nivel(t_plataforma* self, char* nombre_nivel, t_socket_client* socket_nivel, char* planificador_connection_info);
 
 #endif /* PLATAFORMA_H_ */

@@ -96,7 +96,7 @@ int main (int argc,char *argv[]){
 				break;
 			default:
 				log_warning(self->logger, "Tipo del mensaje recibido no valido tipo: %d", mensaje->type);
-				return NULL; //TODO WTF this NULL!! hacer un send_error_message
+				return false; //TODO WTF this FALSE!! hacer un send_error_message
 		}
 
 		mensaje_destroy(mensaje);
