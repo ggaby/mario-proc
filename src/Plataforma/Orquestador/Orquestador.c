@@ -55,21 +55,19 @@ void* orquestador(void* plat) {
 		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
 		sockets_bufferDestroy(buffer);
 
-		switch (mensaje->type) {
-		case M_HANDSHAKE_PERSONAJE:
-			responder_handshake(client);
-			break;
-		case M_HANDSHAKE_NIVEL:
-			responder_handshake(client);
-			procesar_handshake_nivel(client);
-			break;
-		default:
-			pthread_mutex_lock(&plataforma->logger_mutex);
-			log_warning(plataforma->logger,
-					"Orquestador: Error al recibir el handshake, tipo de mensaje no valido %d",
-					mensaje->type);
-			pthread_mutex_unlock(&plataforma->logger_mutex);
-			return NULL ; //TODO usar send_error_message!!
+		switch(mensaje->type){
+			case M_HANDSHAKE_PERSONAJE:
+				responder_handshake(client);
+				break;
+			case M_HANDSHAKE_NIVEL:
+				responder_handshake(client);
+				procesar_handshake_nivel(client);
+				break;
+			default:
+				pthread_mutex_lock(&plataforma->logger_mutex);
+				log_warning(plataforma->logger, "Orquestador: Error al recibir el handshake, tipo de mensaje no valido %d", mensaje->type);
+				pthread_mutex_unlock(&plataforma->logger_mutex);
+				return NULL; //TODO usar send_error_message!!
 		}
 
 		mensaje_destroy(mensaje);
