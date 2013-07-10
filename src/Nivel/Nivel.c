@@ -4,8 +4,9 @@
 #include <unistd.h>
 #include "Nivel.h"
 #include <commons/string.h>
+#include <commons/collections/list.h>
 
-//Cambiar por el puerto del archico de configuracion correspondiente
+//Cambiar por el puerto del archivo de configuracion correspondiente
 #define PORT 5001
 
 bool verificar_argumentos(int argc, char* argv[]);
@@ -13,38 +14,19 @@ bool verificar_argumentos(int argc, char* argv[]);
 int main(int argc, char *argv[]) {
 
 	if (!verificar_argumentos(argc, argv)) {
-		printf("argumentos invalidos!\n");
+		printf("Argumentos inválidos!\n");
 		return EXIT_FAILURE;
 	}
 
-	nivel_t_nivel* self;
-	self = nivel_create(argv[1]);
+	nivel_t_nivel* self = nivel_create(argv[1]);
 
-	t_socket_client* socket_orquestador = nivel_conectar_a_orquestador(self);
-	if (socket_orquestador == NULL ) {
+	if (!nivel_conectar_a_orquestador(self)) {
 		nivel_destroy(self);
 		return EXIT_FAILURE;
 	}
 
-	//Se crea un socket para escuchar conexiones
+	list_add(self->clients, self->socket_orquestador);
 
-	t_socket_server* server = sockets_createServer(NULL, self->puerto);
-
-	if (!sockets_listen(server)) {
-		printf("No se puede escuchar\n");
-		sockets_destroyServer(server);
-		sockets_destroyClient(socket_orquestador);
-		nivel_destroy(self);
-		return EXIT_FAILURE;
-	}
-
-	log_info(self->logger, "Escuchando conexiones entrantes en 127.0.0.1:%d",
-			self->puerto);
-
-	t_list* servers = list_create();
-	list_add(servers, server);
-
-	//closure que maneja las nuevas conexiones
 	t_socket_client* acceptClosure(t_socket_server* server) {
 		t_socket_client* client = sockets_accept(server);
 		t_socket_buffer* buffer = sockets_recv(client);
@@ -83,7 +65,7 @@ int main(int argc, char *argv[]) {
 		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
 		sockets_bufferDestroy(buffer);
 
-		//TODO hacer un case, por cada tipo de mensaje que manden los personajes y el orquestador
+		//TODO hacer un case, por cada tipo de mensaje que manden los personajes y el orquestador_info
 
 		switch (mensaje->type) {
 		case M_GET_NOMBRE_NIVEL_REQUEST:
@@ -100,18 +82,17 @@ int main(int argc, char *argv[]) {
 		return true;
 	}
 
-	t_list* clients = list_create();
-	list_add(clients, socket_orquestador);
+	sockets_create_little_server(NULL, self->puerto, self->logger, NULL,
+			self->nombre, self->servers, self->clients, &acceptClosure,
+			&recvClosure);
 
 	while (true) {
-		printf("Entro al select\n");
-		sockets_select(servers, clients, 0, &acceptClosure, &recvClosure);
+		log_debug(self->logger, "Entro al select");
+		sockets_select(self->servers, self->clients, 0, &acceptClosure,
+				&recvClosure);
 	}
 
-	list_destroy_and_destroy_elements(servers, (void*) sockets_destroyServer);
-	list_destroy_and_destroy_elements(clients, (void*) sockets_destroyClient);
-
-	printf("Proceso Nivel: %s cerrado correctamente.\n", self->nombre);
+	log_info(self->logger, "%s: cerrado correctamente", self->nombre);
 
 	nivel_destroy(self);
 
@@ -126,7 +107,7 @@ nivel_t_nivel* nivel_create(char* config_path) {
 			"TiempoChequeoDeadlock");
 	new->recovery = config_get_int_value(config, "Recovery");
 
-	new->orquestador = connection_create(
+	new->orquestador_info = connection_create(
 			config_get_string_value(config, "orquestador"));
 
 	//TODO Ver como se cargan los recursos
@@ -160,15 +141,35 @@ nivel_t_nivel* nivel_create(char* config_path) {
 
 	config_destroy(config);
 
+	new->socket_orquestador = NULL;
+	new->clients = list_create();
+	new->servers = list_create();
+
 	log_info(new->logger, "Nivel  %s creado correctamente", new->nombre);
 	return new;
 }
 
 void nivel_destroy(nivel_t_nivel* self) {
 	free(self->nombre);
-	connection_destroy(self->orquestador);
+	connection_destroy(self->orquestador_info);
 	log_destroy(self->logger);
+
 	//TODO Free de los recursos
+
+	if (self->socket_orquestador != NULL ) {
+		bool is_socket_orquestador(t_socket_client* elem) {
+			return sockets_equalsClients(self->socket_orquestador, elem);
+		}
+
+		list_remove_and_destroy_by_condition(self->clients,
+				(void*) is_socket_orquestador, (void*) sockets_destroyClient);
+	}
+
+	list_destroy_and_destroy_elements(self->clients,
+			(void*) sockets_destroyClient);
+	list_destroy_and_destroy_elements(self->servers,
+			(void*) sockets_destroyServer);
+
 	free(self);
 }
 
@@ -189,68 +190,11 @@ bool verificar_argumentos(int argc, char* argv[]) {
 	return true;
 }
 
-//TODO esta funcion se puede extraer a la lib de sockets (ver que comparte to-do con el de personaje, hay que parametrizarla con (t_conection_info, t_log, int puerto)
-t_socket_client* nivel_conectar_a_orquestador(nivel_t_nivel* self) {
+bool nivel_conectar_a_orquestador(nivel_t_nivel* self) {
+	self->socket_orquestador = sockets_conectar_a_servidor(NULL, self->puerto,
+			self->orquestador_info->ip, self->orquestador_info->puerto,
+			self->logger, M_HANDSHAKE_NIVEL, NIVEL_HANDSHAKE, HANDSHAKE_SUCCESS,
+			"Orquestador");
 
-	//Se crea un socket que se conecta al orquestador,
-
-	t_socket_client* socket_orquestador = sockets_createClient(NULL,
-			self->puerto);
-
-	if (socket_orquestador == NULL ) {
-		log_error(self->logger,
-				"Error al crear el socket para conectarse con el orquestador");
-		return NULL ;
-	}
-
-	//Si no puede conectarse al orquestador,
-	//se borra el socket que se creo
-	if (sockets_connect(socket_orquestador, self->orquestador->ip,
-			self->orquestador->puerto) == 0) {
-		sockets_destroyClient(socket_orquestador);
-		return NULL ;
-	}
-
-	//Se crear un mensaje para enviar el HANDSHAKE
-
-	t_mensaje* mensaje = mensaje_create(M_HANDSHAKE_NIVEL);
-	mensaje_setdata(mensaje, strdup(NIVEL_HANDSHAKE),
-			strlen(NIVEL_HANDSHAKE) + 1);
-
-	log_info(self->logger, "Enviando handshake al orquestador");
-
-	mensaje_send(mensaje, socket_orquestador);
-	mensaje_destroy(mensaje);
-
-	//Espera recibir una respuesta del orquestador.
-	t_socket_buffer* buffer = sockets_recv(socket_orquestador);
-	log_info(self->logger, "Recibiendo resultado del handshake");
-
-	if (buffer == NULL ) {
-		log_info(self->logger, "Error en el resultado del handshake");
-		sockets_destroyClient(socket_orquestador);
-		return NULL ;
-	}
-
-	t_mensaje* rta_handshake = mensaje_deserializer(buffer, 0);
-	sockets_bufferDestroy(buffer);
-
-	if (rta_handshake->length != (strlen(HANDSHAKE_SUCCESS) + 1)
-			|| (!string_equals_ignore_case((char*) rta_handshake->payload,
-					HANDSHAKE_SUCCESS))) {
-
-		log_error(self->logger, "Error en la respuesta del handshake");
-		mensaje_destroy(rta_handshake);
-		sockets_destroyClient(socket_orquestador);
-		return NULL ;
-	}
-
-	mensaje_destroy(rta_handshake);
-
-	log_info(self->logger,
-			"Conectado con el Orquestador: Origen: 127.0.0.1:%d, Destino: %s:%d",
-			self->puerto, self->orquestador->ip, self->orquestador->puerto);
-
-	return socket_orquestador;
-
+	return (self->socket_orquestador != NULL );
 }
