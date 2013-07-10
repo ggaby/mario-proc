@@ -128,7 +128,7 @@ nivel_t_nivel* nivel_create(char* config_path){
 	new->tiempoChequeoDeadlock = config_get_int_value(config, "TiempoChequeoDeadlock");
 	new->recovery = config_get_int_value(config, "Recovery");
 
-	new->orquestador = t_connection_new(config_get_string_value(config, "orquestador"));
+	new->orquestador = t_connection_create(config_get_string_value(config, "orquestador"));
 
 	//TODO Ver como se cargan los recursos
 

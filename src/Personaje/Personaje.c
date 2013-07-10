@@ -38,17 +38,21 @@ int main(int argc, char* argv[]) {
 
 	t_socket_client* socket_orquestador = personaje_conectar_a_orquestador();
 
-	if (socket_orquestador == NULL) {
+	if (socket_orquestador == NULL ) {
 		personaje_destroy(self);
 		return EXIT_FAILURE;
 	}
 
-	t_connection_info* nivel = personaje_get_info_nivel(socket_orquestador);
+	t_personaje_nivel* nivel = personaje_get_info_nivel(socket_orquestador);
 
 	if (nivel != NULL ) {
-		log_info(self->logger, "Nivel recibido: IP:%s, PUERTO:%d", nivel->ip, nivel->puerto);
-		t_connection_destroy(nivel);
+		log_debug(self->logger,
+				"Nivel recibido: NIVEL-IP:%s, NIVEL-PUERTO:%d, PLAN-IP:%s, PLAN-PUERTO:%d",
+				nivel->nivel->ip, nivel->nivel->puerto, nivel->planificador->ip,
+				nivel->planificador->puerto);
+		personaje_nivel_destroy(nivel);
 	}
+
 	sockets_destroyClient(socket_orquestador);
 	log_info(self->logger, "Conexión terminada");
 	personaje_destroy(self);
@@ -56,9 +60,10 @@ int main(int argc, char* argv[]) {
 	return EXIT_SUCCESS;
 }
 
-t_connection_info* personaje_get_info_nivel(t_socket_client* orquestador) {
+t_personaje_nivel* personaje_get_info_nivel(t_socket_client* orquestador) {
 
 	log_info(self->logger, "Solicitando datos de nivel");
+	//TODO: Obvio que acá no siempre en el nivel[0]
 	t_mensaje* request = mensaje_create(M_GET_INFO_NIVEL_REQUEST);
 	mensaje_setdata(request, strdup(self->plan_de_niveles[0]),
 			strlen(self->plan_de_niveles[0]) + 1);
@@ -87,11 +92,16 @@ t_connection_info* personaje_get_info_nivel(t_socket_client* orquestador) {
 		return NULL ;
 	}
 
-	t_connection_info* nivel = t_connection_new(response->payload);
+	t_get_info_nivel_response* response_data =
+			get_info_nivel_response_deserialize((char*) response->payload);
 
+	t_personaje_nivel* nivel = personaje_nivel_create(response_data->nivel,
+			response_data->planificador);
+
+	free(response_data);
 	mensaje_destroy(response);
-
 	return nivel;
+
 }
 
 void personaje_perder_vida(int n) {
@@ -121,7 +131,7 @@ t_personaje* personaje_create(char* config_path) {
 	new->plan_de_niveles = config_get_array_value(config, "planDeNiveles");
 	new->objetivos = _personaje_load_objetivos(config, new->plan_de_niveles);
 	new->vidas = config_get_int_value(config, "vidas");
-	new->orquestador = t_connection_new(
+	new->orquestador = t_connection_create(
 			config_get_string_value(config, "orquestador"));
 
 	void morir(char* mensaje) {
@@ -143,7 +153,8 @@ t_personaje* personaje_create(char* config_path) {
 		log_file = string_duplicate(config_get_string_value(config, "logFile"));
 	}
 	if (config_has_property(config, "logLevel")) {
-		log_level = string_duplicate(config_get_string_value(config, "logLevel"));
+		log_level = string_duplicate(
+				config_get_string_value(config, "logLevel"));
 	}
 	new->logger = log_create(log_file, "Personaje", true,
 			log_level_from_string(log_level));
@@ -230,23 +241,23 @@ t_socket_client* personaje_conectar_a_orquestador() {
 
 	mensaje_destroy(rta_handshake);
 
-	log_info(self->logger, "Conectado con el Orquestador: Origen: 127.0.0.1:%d, Destino: %s:%d",
+	log_info(self->logger,
+			"Conectado con el Orquestador: Origen: 127.0.0.1:%d, Destino: %s:%d",
 			self->puerto, self->orquestador->ip, self->orquestador->puerto);
 
 	return socket_orquestador;
 }
 
-//TODO verificar que se use
-personaje_t_nivel* personaje_nivel_create(t_connection_info* nivel, t_connection_info* planificador) {
-	personaje_t_nivel* new = malloc(sizeof(personaje_t_nivel));
-	new->data = nivel;
+t_personaje_nivel* personaje_nivel_create(t_connection_info* nivel,
+		t_connection_info* planificador) {
+	t_personaje_nivel* new = malloc(sizeof(t_personaje_nivel));
+	new->nivel = nivel;
 	new->planificador = planificador;
 	return new;
 }
 
-//TODO verificar que se use
-void personaje_nivel_destroy(personaje_t_nivel* self) {
-	t_connection_destroy(self->data);
+void personaje_nivel_destroy(t_personaje_nivel* self) {
+	t_connection_destroy(self->nivel);
 	t_connection_destroy(self->planificador);
 	free(self);
 }

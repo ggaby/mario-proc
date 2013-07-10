@@ -55,19 +55,21 @@ void* orquestador(void* plat) {
 		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
 		sockets_bufferDestroy(buffer);
 
-		switch(mensaje->type){
-			case M_HANDSHAKE_PERSONAJE:
-				responder_handshake(client);
-				break;
-			case M_HANDSHAKE_NIVEL:
-				responder_handshake(client);
-				procesar_handshake_nivel(client);
-				break;
-			default:
-				pthread_mutex_lock(&plataforma->logger_mutex);
-				log_warning(plataforma->logger, "Orquestador: Error al recibir el handshake, tipo de mensaje no valido %d", mensaje->type);
-				pthread_mutex_unlock(&plataforma->logger_mutex);
-				return NULL; //TODO usar send_error_message!!
+		switch (mensaje->type) {
+		case M_HANDSHAKE_PERSONAJE:
+			responder_handshake(client);
+			break;
+		case M_HANDSHAKE_NIVEL:
+			responder_handshake(client);
+			procesar_handshake_nivel(client);
+			break;
+		default:
+			pthread_mutex_lock(&plataforma->logger_mutex);
+			log_warning(plataforma->logger,
+					"Orquestador: Error al recibir el handshake, tipo de mensaje no valido %d",
+					mensaje->type);
+			pthread_mutex_unlock(&plataforma->logger_mutex);
+			return NULL ; //TODO usar send_error_message!!
 		}
 
 		mensaje_destroy(mensaje);
@@ -84,7 +86,7 @@ void* orquestador(void* plat) {
 
 		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
 		mostrar_mensaje(mensaje, client);
-		process_request(mensaje, client);
+		process_request(mensaje, client, plataforma);
 
 		mensaje_destroy(mensaje);
 		sockets_bufferDestroy(buffer);
@@ -110,9 +112,10 @@ void* orquestador(void* plat) {
 
 }
 
-void process_request(t_mensaje* request, t_socket_client* client) {
+void process_request(t_mensaje* request, t_socket_client* client,
+		t_plataforma* plataforma) {
 	if (request->type == M_GET_INFO_NIVEL_REQUEST) {
-		return orquestador_get_info_nivel(request, client);
+		return orquestador_get_info_nivel(request, client, plataforma);
 	} else {
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_warning(plataforma->logger,
@@ -122,13 +125,46 @@ void process_request(t_mensaje* request, t_socket_client* client) {
 	}
 }
 
-void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client) {
-	//char* nivel = (char*) request->payload; TODO no se estaba usando esta variable
+void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client,
+		t_plataforma* plataforma) {
+	char* nivel_pedido = string_duplicate((char*) request->payload);
+
+	bool mismo_nombre(plataforma_t_nivel* elem) {
+		return string_equals_ignore_case(elem->nombre, nivel_pedido);
+	}
+
+	plataforma_t_nivel* el_nivel = list_find(plataforma->niveles,
+			(void*) mismo_nombre);
+
+	if (el_nivel == NULL ) {
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_error(plataforma->logger, "Orquestador: Nivel inválido: %s",
+				nivel_pedido);
+		pthread_mutex_unlock(&plataforma->logger_mutex);
+
+		free(nivel_pedido);
+		orquestador_send_error_message("Nivel inválido", client);
+		return;
+	}
+
 	t_mensaje* response = mensaje_create(M_GET_INFO_NIVEL_RESPONSE);
-	mensaje_setdata(response, string_duplicate("213.456.789.123:8080"),
-			strlen("213.456.789.123:8080") + 1);
+
+	char* nivel_str = string_from_format("%s:%d",
+			sockets_getIp(el_nivel->socket_nivel->socket),
+			sockets_getPort(el_nivel->socket_nivel->socket));
+	t_connection_info* nivel_connection = t_connection_create(nivel_str);
+
+	t_stream* response_data = get_info_nivel_response_create_serialized(
+			nivel_connection, el_nivel->planificador);
+
+	mensaje_setdata(response, response_data->data, response_data->length);
 	mensaje_send(response, client);
 	mensaje_destroy(response);
+
+	free(nivel_str);
+	t_connection_destroy(nivel_connection);
+	free(nivel_pedido);
+	free(response_data);
 }
 
 void orquestador_send_error_message(char* error_description,
@@ -160,7 +196,7 @@ void procesar_handshake_nivel(t_socket_client* socket_nivel) {
 	mensaje = mensaje_deserializer(buffer, 0);
 	sockets_bufferDestroy(buffer);
 
-	if (mensaje->type != M_GET_NOMBRE_NIVEL_RESPONSE ) {
+	if (mensaje->type != M_GET_NOMBRE_NIVEL_RESPONSE) {
 		sockets_destroyClient(socket_nivel);
 		mensaje_destroy(mensaje);
 		pthread_mutex_lock(&plataforma->logger_mutex);

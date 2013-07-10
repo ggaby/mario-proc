@@ -10,6 +10,11 @@
 #include <stdio.h>
 #include <commons/string.h>
 
+void stream_destroy(t_stream* self) {
+	free(self->data);
+	free(self);
+}
+
 t_mensaje* mensaje_create(uint8_t type) {
 	t_mensaje* mensaje = (t_mensaje*) malloc(sizeof(t_mensaje));
 	mensaje->type = type;
@@ -20,7 +25,7 @@ t_mensaje* mensaje_create(uint8_t type) {
 }
 
 void mensaje_setdata(t_mensaje* mensaje, void* data, uint16_t length) {
-	mensaje->length = length; //TODO porque no setear el length automagicamente como sizeof(data) ??
+	mensaje->length = length;
 	mensaje->payload = data;
 }
 
@@ -33,40 +38,87 @@ void mensaje_destroy(t_mensaje* mensaje) {
 	free(mensaje);
 }
 
-//TODO en esta serialización hay algo mal... lo dejo comentado por si
-//sive en el futuro
+t_stream* get_info_nivel_response_create_serialized(t_connection_info* nivel,
+		t_connection_info* planificador) {
 
+	t_stream* niv = t_connection_info_serialize(nivel);
+	t_stream* planif = t_connection_info_serialize(planificador);
+	t_stream* result = malloc(sizeof(t_stream));
+	result->data = malloc(niv->length + planif->length);
+	memcpy(result->data, niv->data, niv->length);
+	memcpy(result->data + niv->length, planif->data, planif->length);
+	result->length = niv->length + planif->length;
+	stream_destroy(niv);
+	stream_destroy(planif);
+	return result;
+}
 
-//t_stream* t_connection_info_serialize(t_connection_info* self) {
-//	char* data = malloc(sizeof(uint32_t) + strlen(self->ip) + 1);
-//	t_stream* stream = malloc(sizeof(t_stream));
-//	int tmpsize, offset = 0;
-//
-//	memcpy(data, &self->ip, tmpsize = strlen(self->ip) + 1);
-//	offset = tmpsize;
-//
-//	memcpy(data + offset, &self->puerto, tmpsize = sizeof(uint32_t));
-//
-//	stream->length = offset + tmpsize;
-//	stream->data = data;
-//	printf("%s\n", data);
-//
-//	return stream;
-//}
-//
-//t_connection_info* t_connection_info_deserialize(char* data) {
-//	t_connection_info* self = malloc(sizeof(t_connection_info));
-//	int tmpsize, offset = 0;
-//
-//	for (tmpsize = 1; (data + offset)[tmpsize -1] != '\0'; tmpsize++);
-//	self->ip = malloc(tmpsize);
-//	memcpy(&self->ip, data + offset, tmpsize);
-//	offset += tmpsize;
-//
-//	memcpy(&self->puerto, data + offset, sizeof(uint32_t));
-//
-//	return self;
-//}
+//Sí, aguante el código spaguetti (?)
+
+t_get_info_nivel_response* get_info_nivel_response_deserialize(char* data) {
+	t_get_info_nivel_response* new = malloc(sizeof(t_get_info_nivel_response));
+
+	t_connection_info* nivel = malloc(sizeof(t_connection_info));
+	t_connection_info* planificador = malloc(sizeof(t_connection_info));
+	int tmpsize, offset = 0;
+
+	for (tmpsize = 1; (data + offset)[tmpsize - 1] != '\0'; tmpsize++)
+		;
+	nivel->ip = malloc(tmpsize);
+	memcpy(nivel->ip, data + offset, tmpsize);
+	offset += tmpsize;
+	memcpy(&nivel->puerto, data + offset, tmpsize = sizeof(uint32_t));
+	offset += tmpsize;
+
+	new->nivel = nivel;
+
+	for (tmpsize = 1; (data + offset)[tmpsize - 1] != '\0'; tmpsize++)
+		;
+	planificador->ip = malloc(tmpsize);
+	memcpy(planificador->ip, data + offset, tmpsize);
+	offset += tmpsize;
+	memcpy(&planificador->puerto, data + offset, sizeof(uint32_t));
+
+	new->planificador = planificador;
+	return new;
+}
+
+void get_info_nivel_response_destroy(t_get_info_nivel_response* self) {
+	t_connection_destroy(self->nivel);
+	t_connection_destroy(self->planificador);
+	free(self);
+}
+
+t_stream* t_connection_info_serialize(t_connection_info* self) {
+	t_stream* result = malloc(sizeof(t_stream));
+	char* buffer = malloc(sizeof(uint32_t) + strlen(self->ip) + 1);
+	int tmpsize, offset = 0;
+
+	memcpy(buffer, self->ip, tmpsize = strlen(self->ip) + 1);
+	offset = tmpsize;
+
+	memcpy(buffer + offset, &self->puerto, tmpsize = sizeof(uint32_t));
+	offset += tmpsize;
+
+	result->data = buffer;
+	result->length = offset;
+	return result;
+}
+
+t_connection_info* t_connection_info_deserialize(char* data) {
+	t_connection_info* new = malloc(sizeof(t_connection_info));
+	int tmpsize, offset = 0;
+
+	for (tmpsize = 1; (data + offset)[tmpsize - 1] != '\0'; tmpsize++)
+		;
+	new->ip = malloc(tmpsize);
+	memcpy(new->ip, data + offset, tmpsize);
+	offset += tmpsize;
+
+	memcpy(&new->puerto, data + offset, sizeof(uint32_t));
+
+	return new;
+}
 
 t_socket_buffer* mensaje_serializer(t_mensaje* mensaje) {
 	int tmpsize, offset = 0;
@@ -116,7 +168,7 @@ void mensaje_send(t_mensaje* mensaje, t_socket_client* client) {
 	sockets_bufferDestroy(buffer);
 }
 
-t_connection_info* t_connection_new(char* ip_y_puerto) {
+t_connection_info* t_connection_create(char* ip_y_puerto) {
 	t_connection_info* new = malloc(sizeof(t_connection_info));
 	char** tokens = string_split(ip_y_puerto, ":");
 	new->ip = string_duplicate(tokens[0]);

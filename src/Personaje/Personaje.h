@@ -27,17 +27,18 @@ typedef struct {
 } t_personaje;
 
 typedef struct {
-	t_connection_info* data;
+	t_connection_info* nivel;
 	t_connection_info* planificador;
-} personaje_t_nivel;
+} t_personaje_nivel;
 
 t_personaje* personaje_create(char* config_path);
 void personaje_destroy(t_personaje* self);
-personaje_t_nivel* personaje_nivel_create(t_connection_info* nivel, t_connection_info* planificador);
-void personaje_nivel_destroy(personaje_t_nivel* self);
+t_personaje_nivel* personaje_nivel_create(t_connection_info* nivel,
+		t_connection_info* planificador);
+void personaje_nivel_destroy(t_personaje_nivel* self);
 t_dictionary* _personaje_load_objetivos(t_config* config,
 		char** plan_de_niveles);
-t_connection_info* personaje_get_info_nivel(t_socket_client* orquestador);
+t_personaje_nivel* personaje_get_info_nivel(t_socket_client* orquestador);
 t_socket_client* personaje_conectar_a_orquestador();
 
 #endif /* PERSONAJE_H_ */

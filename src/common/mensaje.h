@@ -49,6 +49,12 @@ typedef struct t_connection_info {
 	uint32_t puerto;
 } __attribute__ ((packed)) t_connection_info;
 
+typedef struct t_get_info_nivel_response {
+	t_connection_info* nivel;
+	t_connection_info* planificador;
+} __attribute__ ((packed)) t_get_info_nivel_response;
+
+void stream_destroy(t_stream* self);
 t_mensaje *mensaje_create(uint8_t type);
 void mensaje_setdata(t_mensaje* mensaje, void* data, uint16_t length);
 void* mensaje_getdata(t_mensaje* mensaje);
@@ -58,9 +64,13 @@ t_socket_buffer* mensaje_serializer(t_mensaje* mensaje);
 t_mensaje* mensaje_deserializer(t_socket_buffer* buffer, uint32_t dataStart);
 t_mensaje* mensaje_clone(t_mensaje* mensaje);
 void mensaje_send(t_mensaje* mensaje, t_socket_client *client);
-t_connection_info* t_connection_new(char* ip_y_puerto);
+t_connection_info* t_connection_create(char* ip_y_puerto);
 void t_connection_destroy(t_connection_info* self);
-//t_stream* t_connection_info_serialize(t_connection_info* self);
-//t_connection_info* t_connection_info_deserialize(char* data);
+t_stream* t_connection_info_serialize(t_connection_info* self);
+t_connection_info* t_connection_info_deserialize(char* data);
 char* t_connection_info_to_string(t_connection_info* connection);
+t_stream* get_info_nivel_response_create_serialized(t_connection_info* nivel,
+		t_connection_info* planificador);
+t_get_info_nivel_response* get_info_nivel_response_deserialize(char* data);
+void get_info_nivel_response_destroy(t_get_info_nivel_response* self);
 #endif /* MENSAJE_H_ */
