@@ -16,20 +16,25 @@
 #include <commons/log.h>
 
 typedef struct {
+	t_connection_info* nivel;
+	t_connection_info* planificador;
+} t_personaje_nivel;
+
+typedef struct {
 	char* nombre;
 	char simbolo;
 	char** plan_de_niveles;
 	t_dictionary* objetivos;
 	int vidas;
-	t_connection_info* orquestador;
+	t_connection_info* orquestador_info;
+	t_socket_client* socket_orquestador;
 	int puerto;
 	t_log* logger;
+	t_personaje_nivel* nivel_info;
+	t_socket_client* socket_nivel;
+	t_socket_client* socket_planificador;
 } t_personaje;
 
-typedef struct {
-	t_connection_info* nivel;
-	t_connection_info* planificador;
-} t_personaje_nivel;
 
 t_personaje* personaje_create(char* config_path);
 void personaje_destroy(t_personaje* self);
@@ -38,7 +43,9 @@ t_personaje_nivel* personaje_nivel_create(t_connection_info* nivel,
 void personaje_nivel_destroy(t_personaje_nivel* self);
 t_dictionary* _personaje_load_objetivos(t_config* config,
 		char** plan_de_niveles);
-t_personaje_nivel* personaje_get_info_nivel(t_socket_client* orquestador);
-t_socket_client* personaje_conectar_a_orquestador();
+bool personaje_get_info_nivel(t_personaje* self);
+bool personaje_conectar_a_orquestador(t_personaje* self);
+bool personaje_conectar_a_nivel(t_personaje* self);
+bool personaje_conectar_a_planificador(t_personaje* self);
 
 #endif /* PERSONAJE_H_ */

@@ -15,10 +15,7 @@
 #include <commons/string.h>
 #include "Personaje.h"
 
-void personaje_perder_vida(int n);
 bool verificar_argumentos(int argc, char* argv[]);
-
-t_personaje* self;
 
 int main(int argc, char* argv[]) {
 
@@ -26,7 +23,7 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	self = personaje_create(argv[1]);
+	t_personaje* self = personaje_create(argv[1]);
 
 	if (self == NULL ) {
 		return EXIT_FAILURE;
@@ -34,43 +31,54 @@ int main(int argc, char* argv[]) {
 		log_debug(self->logger, "Personaje creado");
 	}
 
-	signal(SIGUSR1, &personaje_perder_vida);
+	void handle_signal(int signal) {
+		log_info(self->logger, "Señal %d atrapada", signal);
+		switch (signal) {
+		case SIGUSR1:
+			if (self->vidas > 0) {
+				self->vidas--;
+				log_info(self->logger, "Ahora me quedan %d vidas", self->vidas);
+			} else {
+				//TODO: Qué hacemo?
+			}
+			break;
+		}
+	}
+	signal(SIGUSR1, &handle_signal);
 
-	t_socket_client* socket_orquestador = personaje_conectar_a_orquestador();
-
-	if (socket_orquestador == NULL ) {
+	if (!personaje_conectar_a_orquestador(self)) {
 		personaje_destroy(self);
 		return EXIT_FAILURE;
 	}
 
-	t_personaje_nivel* nivel = personaje_get_info_nivel(socket_orquestador);
-
-	if (nivel != NULL ) {
-		log_debug(self->logger,
-				"Nivel recibido: NIVEL-IP:%s, NIVEL-PUERTO:%d, PLAN-IP:%s, PLAN-PUERTO:%d",
-				nivel->nivel->ip, nivel->nivel->puerto, nivel->planificador->ip,
-				nivel->planificador->puerto);
-		personaje_nivel_destroy(nivel);
+	if (!personaje_get_info_nivel(self)) {
+		personaje_destroy(self);
+		return EXIT_FAILURE;
 	}
 
-	sockets_destroyClient(socket_orquestador);
+	log_debug(self->logger,
+			"Nivel recibido: NIVEL-IP:%s, NIVEL-PUERTO:%d, PLAN-IP:%s, PLAN-PUERTO:%d",
+			self->nivel_info->nivel->ip, self->nivel_info->nivel->puerto,
+			self->nivel_info->planificador->ip,
+			self->nivel_info->planificador->puerto);
+
 	log_info(self->logger, "Conexión terminada");
 	personaje_destroy(self);
 
 	return EXIT_SUCCESS;
 }
 
-t_personaje_nivel* personaje_get_info_nivel(t_socket_client* orquestador) {
+bool personaje_get_info_nivel(t_personaje* self) {
 
 	log_info(self->logger, "Solicitando datos de nivel");
 	//TODO: Obvio que acá no siempre en el nivel[0]
 	t_mensaje* request = mensaje_create(M_GET_INFO_NIVEL_REQUEST);
 	mensaje_setdata(request, strdup(self->plan_de_niveles[0]),
 			strlen(self->plan_de_niveles[0]) + 1);
-	mensaje_send(request, orquestador);
+	mensaje_send(request, self->socket_orquestador);
 	mensaje_destroy(request);
 
-	t_socket_buffer* buffer = sockets_recv(orquestador);
+	t_socket_buffer* buffer = sockets_recv(self->socket_orquestador);
 
 	if (buffer == NULL ) {
 		log_error(self->logger, "Error al recibir la información del nivel");
@@ -83,40 +91,24 @@ t_personaje_nivel* personaje_get_info_nivel(t_socket_client* orquestador) {
 	if (response->type == M_ERROR) {
 		log_error(self->logger, (char*) response->payload);
 		mensaje_destroy(response);
-		return NULL ;
+		return false;
 	}
 
 	if (response->type != M_GET_INFO_NIVEL_RESPONSE) {
 		log_error(self->logger, "Error desconocido en la respuesta");
 		mensaje_destroy(response);
-		return NULL ;
+		return false;
 	}
 
 	t_get_info_nivel_response* response_data =
 			get_info_nivel_response_deserialize((char*) response->payload);
 
-	t_personaje_nivel* nivel = personaje_nivel_create(response_data->nivel,
+	self->nivel_info = personaje_nivel_create(response_data->nivel,
 			response_data->planificador);
 
 	free(response_data);
 	mensaje_destroy(response);
-	return nivel;
-
-}
-
-void personaje_perder_vida(int n) {
-	log_info(self->logger, "Señal %d atrapada", n);
-	switch (n) {
-	case SIGUSR1:
-		if (self->vidas > 0) {
-			self->vidas--;
-		} else {
-			//TODO: Qué hacemo?
-		}
-		log_info(self->logger, "Ahora me quedan %d vidas", self->vidas);
-		fflush(stdout);
-		break;
-	}
+	return true;
 }
 
 t_personaje* personaje_create(char* config_path) {
@@ -131,7 +123,7 @@ t_personaje* personaje_create(char* config_path) {
 	new->plan_de_niveles = config_get_array_value(config, "planDeNiveles");
 	new->objetivos = _personaje_load_objetivos(config, new->plan_de_niveles);
 	new->vidas = config_get_int_value(config, "vidas");
-	new->orquestador = connection_create(
+	new->orquestador_info = connection_create(
 			config_get_string_value(config, "orquestador"));
 
 	void morir(char* mensaje) {
@@ -159,6 +151,12 @@ t_personaje* personaje_create(char* config_path) {
 	new->logger = log_create(log_file, "Personaje", true,
 			log_level_from_string(log_level));
 	config_destroy(config);
+
+	new->nivel_info = NULL;
+	new->socket_nivel = NULL;
+	new->socket_orquestador = NULL;
+	new->socket_planificador = NULL;
+
 	free(s);
 	free(log_file);
 	free(log_level);
@@ -170,8 +168,20 @@ void personaje_destroy(t_personaje* self) {
 	array_destroy(self->plan_de_niveles);
 	dictionary_destroy_and_destroy_elements(self->objetivos,
 			(void*) array_destroy);
-	connection_destroy(self->orquestador);
+	connection_destroy(self->orquestador_info);
 	log_destroy(self->logger);
+	if (self->socket_orquestador != NULL ) {
+		sockets_destroyClient(self->socket_orquestador);
+	}
+	if (self->nivel_info != NULL ) {
+		personaje_nivel_destroy(self->nivel_info);
+	}
+	if (self->socket_nivel != NULL) {
+		sockets_destroyClient(self->socket_nivel);
+	}
+	if(self->socket_planificador != NULL) {
+		sockets_destroyClient(self->socket_planificador);
+	}
 	free(self);
 }
 
@@ -193,21 +203,19 @@ t_dictionary* _personaje_load_objetivos(t_config* config,
 	return objetivos;
 }
 
-t_socket_client* personaje_conectar_a_orquestador() {
+bool personaje_conectar_a_orquestador(t_personaje* self) {
 
-	t_socket_client* socket_orquestador = sockets_createClient(NULL,
-			self->puerto);
+	self->socket_orquestador = sockets_createClient(NULL, self->puerto);
 
-	if (socket_orquestador == NULL ) {
+	if (self->socket_orquestador == NULL ) {
 		log_error(self->logger, "Error al crear el socket");
-		return NULL ;
+		return false;
 	}
 
-	if (sockets_connect(socket_orquestador, self->orquestador->ip,
-			self->orquestador->puerto) == 0) {
+	if (sockets_connect(self->socket_orquestador, self->orquestador_info->ip,
+			self->orquestador_info->puerto) == 0) {
 		log_error(self->logger, "Error al conectar con el orquestador");
-		sockets_destroyClient(socket_orquestador);
-		return NULL ;
+		return false;
 	}
 
 	log_info(self->logger, "Conectando con el orquestador...");
@@ -216,15 +224,14 @@ t_socket_client* personaje_conectar_a_orquestador() {
 	t_mensaje* mensaje = mensaje_create(M_HANDSHAKE_PERSONAJE);
 	mensaje_setdata(mensaje, string_duplicate(PERSONAJE_HANDSHAKE),
 			strlen(PERSONAJE_HANDSHAKE) + 1);
-	mensaje_send(mensaje, socket_orquestador);
+	mensaje_send(mensaje, self->socket_orquestador);
 	mensaje_destroy(mensaje);
 
-	t_socket_buffer* buffer = sockets_recv(socket_orquestador);
+	t_socket_buffer* buffer = sockets_recv(self->socket_orquestador);
 
 	if (buffer == NULL ) {
 		log_error(self->logger, "Error al recibir la respuesta del handshake");
-		sockets_destroyClient(socket_orquestador);
-		return NULL ;
+		return false;
 	}
 
 	t_mensaje* rta_handshake = mensaje_deserializer(buffer, 0);
@@ -235,17 +242,16 @@ t_socket_client* personaje_conectar_a_orquestador() {
 					HANDSHAKE_SUCCESS))) {
 		log_error(self->logger, "Error en la respuesta del handshake");
 		mensaje_destroy(rta_handshake);
-		sockets_destroyClient(socket_orquestador);
-		return NULL ;
+		return false;
 	}
 
 	mensaje_destroy(rta_handshake);
 
 	log_info(self->logger,
 			"Conectado con el Orquestador: Origen: 127.0.0.1:%d, Destino: %s:%d",
-			self->puerto, self->orquestador->ip, self->orquestador->puerto);
-
-	return socket_orquestador;
+			self->puerto, self->orquestador_info->ip,
+			self->orquestador_info->puerto);
+	return true;
 }
 
 t_personaje_nivel* personaje_nivel_create(t_connection_info* nivel,
