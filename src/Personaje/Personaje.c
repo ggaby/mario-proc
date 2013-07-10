@@ -62,6 +62,9 @@ int main(int argc, char* argv[]) {
 			self->nivel_info->planificador->ip,
 			self->nivel_info->planificador->puerto);
 
+	//personaje_conectar_a_nivel(self);
+	//	personaje_conectar_a_planificador(self);
+
 	log_info(self->logger, "Conexión terminada");
 	personaje_destroy(self);
 
@@ -176,10 +179,10 @@ void personaje_destroy(t_personaje* self) {
 	if (self->nivel_info != NULL ) {
 		personaje_nivel_destroy(self->nivel_info);
 	}
-	if (self->socket_nivel != NULL) {
+	if (self->socket_nivel != NULL ) {
 		sockets_destroyClient(self->socket_nivel);
 	}
-	if(self->socket_planificador != NULL) {
+	if (self->socket_planificador != NULL ) {
 		sockets_destroyClient(self->socket_planificador);
 	}
 	free(self);
@@ -205,53 +208,12 @@ t_dictionary* _personaje_load_objetivos(t_config* config,
 
 bool personaje_conectar_a_orquestador(t_personaje* self) {
 
-	self->socket_orquestador = sockets_createClient(NULL, self->puerto);
+	self->socket_orquestador = sockets_conectar_a_servidor(NULL, self->puerto,
+			self->orquestador_info->ip, self->orquestador_info->puerto,
+			self->logger, M_HANDSHAKE_PERSONAJE, PERSONAJE_HANDSHAKE,
+			HANDSHAKE_SUCCESS, "Orquestador");
 
-	if (self->socket_orquestador == NULL ) {
-		log_error(self->logger, "Error al crear el socket");
-		return false;
-	}
-
-	if (sockets_connect(self->socket_orquestador, self->orquestador_info->ip,
-			self->orquestador_info->puerto) == 0) {
-		log_error(self->logger, "Error al conectar con el orquestador");
-		return false;
-	}
-
-	log_info(self->logger, "Conectando con el orquestador...");
-	log_debug(self->logger, "Enviando handshake");
-
-	t_mensaje* mensaje = mensaje_create(M_HANDSHAKE_PERSONAJE);
-	mensaje_setdata(mensaje, string_duplicate(PERSONAJE_HANDSHAKE),
-			strlen(PERSONAJE_HANDSHAKE) + 1);
-	mensaje_send(mensaje, self->socket_orquestador);
-	mensaje_destroy(mensaje);
-
-	t_socket_buffer* buffer = sockets_recv(self->socket_orquestador);
-
-	if (buffer == NULL ) {
-		log_error(self->logger, "Error al recibir la respuesta del handshake");
-		return false;
-	}
-
-	t_mensaje* rta_handshake = mensaje_deserializer(buffer, 0);
-	sockets_bufferDestroy(buffer);
-
-	if (rta_handshake->length != (strlen(HANDSHAKE_SUCCESS) + 1)
-			|| (!string_equals_ignore_case((char*) rta_handshake->payload,
-					HANDSHAKE_SUCCESS))) {
-		log_error(self->logger, "Error en la respuesta del handshake");
-		mensaje_destroy(rta_handshake);
-		return false;
-	}
-
-	mensaje_destroy(rta_handshake);
-
-	log_info(self->logger,
-			"Conectado con el Orquestador: Origen: 127.0.0.1:%d, Destino: %s:%d",
-			self->puerto, self->orquestador_info->ip,
-			self->orquestador_info->puerto);
-	return true;
+	return (self->socket_orquestador != NULL );
 }
 
 t_personaje_nivel* personaje_nivel_create(t_connection_info* nivel,

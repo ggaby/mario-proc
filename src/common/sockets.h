@@ -106,9 +106,13 @@ void sockets_select(t_list* servers, t_list *clients, int usec_timeout,
 		int (*onRecvClosure)(t_socket_client*));
 void sockets_destroyServer(t_socket_server* server);
 
-bool sockets_create_little_server(char* ip, int puerto, t_log* logger, pthread_mutex_t* log_mutex, char* log_name,
-		t_list *servers, t_list* clients,
-		t_socket_client *(*onAcceptClosure)(t_socket_server*),
+bool sockets_create_little_server(char* ip, int puerto, t_log* logger,
+		pthread_mutex_t* log_mutex, char* log_name, t_list *servers,
+		t_list* clients, t_socket_client *(*onAcceptClosure)(t_socket_server*),
 		int (*onRecvClosure)(t_socket_client*));
+
+t_socket_client* sockets_conectar_a_servidor(char* mi_ip, int mi_puerto,
+		char* server_ip, int server_puerto, t_log* logger, int handshake_type,
+		char* handshake_msg, char* handshake_success, char* server_name);
 
 #endif /* OLD_SOCKETS_H_ */

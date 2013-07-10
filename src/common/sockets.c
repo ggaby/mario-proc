@@ -15,6 +15,8 @@
 #include <commons/collections/list.h>
 #include "errno.h"
 #include "list.h"
+#include "mensaje.h"
+#include <commons/string.h>
 
 /*
  *						Socket Buffer Functions
@@ -440,21 +442,20 @@ void sockets_destroyServer(t_socket_server* server) {
 
 /**
  * Crea un server y lo pone a escuchar conexiones entrantes.
- */
-bool sockets_create_little_server(char* ip, int puerto, t_log* logger, pthread_mutex_t* log_mutex, char* log_name,
-		t_list *servers, t_list* clients,
-		t_socket_client *(*onAcceptClosure)(t_socket_server*),
-		int (*onRecvClosure)(t_socket_client*)){
+ */bool sockets_create_little_server(char* ip, int puerto, t_log* logger,
+		pthread_mutex_t* log_mutex, char* log_name, t_list *servers,
+		t_list* clients, t_socket_client *(*onAcceptClosure)(t_socket_server*),
+		int (*onRecvClosure)(t_socket_client*)) {
 
 	t_socket_server* server = sockets_createServer(ip, puerto);
 
 	if (!sockets_listen(server)) {
-		if(log_mutex != NULL){
+		if (log_mutex != NULL ) {
 			pthread_mutex_lock(log_mutex);
 		}
 		log_error(logger, "%s: No se puede escuchar", log_name);
 
-		if(log_mutex != NULL){
+		if (log_mutex != NULL ) {
 			pthread_mutex_unlock(log_mutex);
 		}
 
@@ -462,26 +463,26 @@ bool sockets_create_little_server(char* ip, int puerto, t_log* logger, pthread_m
 		return false;
 	}
 
-	if(log_mutex != NULL){
+	if (log_mutex != NULL ) {
 		pthread_mutex_lock(log_mutex);
 	}
 
-	log_info(logger, "%s: Escuchando conexiones entrantes en %s:%d",
-			log_name, ip, puerto);
+	log_info(logger, "%s: Escuchando conexiones entrantes en %s:%d", log_name,
+			ip, puerto);
 
-	if(log_mutex != NULL){
+	if (log_mutex != NULL ) {
 		pthread_mutex_unlock(log_mutex);
 	}
 
 	list_add(servers, server);
 
 	while (true) {
-		if(log_mutex != NULL){
+		if (log_mutex != NULL ) {
 			pthread_mutex_lock(log_mutex);
 		}
 		log_debug(logger, "%s: Entro al select", log_name);
 
-		if(log_mutex != NULL){
+		if (log_mutex != NULL ) {
 			pthread_mutex_unlock(log_mutex);
 		}
 
@@ -490,4 +491,54 @@ bool sockets_create_little_server(char* ip, int puerto, t_log* logger, pthread_m
 
 	return true;
 
+}
+
+ t_socket_client* sockets_conectar_a_servidor(char* mi_ip,
+		int mi_puerto, char* server_ip, int server_puerto, t_log* logger,
+		int handshake_type, char* handshake_msg, char* handshake_success,
+		char* server_name) {
+	t_socket_client* socket_client = sockets_createClient(mi_ip, mi_puerto);
+
+	if (socket_client == NULL ) {
+		log_error(logger, "Error al crear el socket");
+		return NULL;
+	}
+
+	if (sockets_connect(socket_client, server_ip, server_puerto) == 0) {
+		log_error(logger, "Error al conectar con %s", server_name);
+		return NULL;
+	}
+
+	log_info(logger, "Conectando con %s...", server_name);
+	log_debug(logger, "Enviando handshake");
+
+	t_mensaje* mensaje = mensaje_create(handshake_type);
+	mensaje_setdata(mensaje, string_duplicate(handshake_msg),
+			strlen(handshake_msg) + 1);
+	mensaje_send(mensaje, socket_client);
+	mensaje_destroy(mensaje);
+
+	t_socket_buffer* buffer = sockets_recv(socket_client);
+
+	if (buffer == NULL ) {
+		log_error(logger, "Error al recibir la respuesta del handshake");
+		return NULL;
+	}
+
+	t_mensaje* rta_handshake = mensaje_deserializer(buffer, 0);
+	sockets_bufferDestroy(buffer);
+
+	if (rta_handshake->length != (strlen(handshake_success) + 1)
+			|| (!string_equals_ignore_case((char*) rta_handshake->payload,
+					handshake_success))) {
+		log_error(logger, "Error en la respuesta del handshake");
+		mensaje_destroy(rta_handshake);
+		return NULL;
+	}
+
+	mensaje_destroy(rta_handshake);
+
+	log_info(logger, "Conectado con %s: Origen: 127.0.0.1:%d, Destino: %s:%d",
+			server_name, mi_puerto, server_ip, server_puerto);
+	return socket_client;
 }
