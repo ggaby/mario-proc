@@ -24,9 +24,10 @@ typedef struct {
 	t_log* logger;
 	pthread_mutex_t logger_mutex;
 	t_list* niveles;
+	char* config_path;
 } t_plataforma;
 
-t_plataforma* plataforma_create();
+t_plataforma* plataforma_create(char* config_path);
 void plataforma_destroy(t_plataforma* self);
 int plataforma_create_nivel(t_plataforma* self, char* nombre_nivel, t_socket_client* socket_nivel, char* planificador_connection_info);
 

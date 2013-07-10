@@ -13,7 +13,9 @@
 
 int main(int argc, char* argv[]) {
 
-	t_plataforma* plataforma = plataforma_create();
+	//TODO validar Args
+
+	t_plataforma* plataforma = plataforma_create(argv[1]);
 
 	pthread_t thread_orquestador;
 	pthread_create(&thread_orquestador, NULL, orquestador, (void*) plataforma);
@@ -23,12 +25,15 @@ int main(int argc, char* argv[]) {
 	return EXIT_SUCCESS;
 }
 
-t_plataforma* plataforma_create() {
+t_plataforma* plataforma_create(char* config_path) {
 	t_plataforma* new = malloc(sizeof(t_plataforma));
 	new->logger = log_create("plataforma.log", "Plataforma", true,
 			log_level_from_string("TRACE"));
 	pthread_mutex_init(&new->logger_mutex, NULL );
 	new->niveles = list_create();
+
+	new->config_path = config_path;
+	//FIXME no hago un duplicate porque sino tengo que hacer free del param, si asigno el puntero no desperdicio memoria, por ende no hace falta hacer free.. es correcto?
 	return new;
 }
 
