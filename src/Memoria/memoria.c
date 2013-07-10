@@ -26,6 +26,7 @@ int guardar_datos(t_fragmento* guardar_aca, t_memoria segmento, char id,
 t_fragmento* fragmento_create(char id, int tamanio, int inicio, bool ocupado);
 void fragmento_destroy(t_fragmento* self);
 void crear_particion_vacia_en_posicion(t_memoria segmento, char id, int tamanio, bool ocupado, int posicion);
+t_fragmento* buscar_elemento_existente(int inicio);
 
 t_memoria crear_memoria(int tamanio) {
 	tamanioSegmento = tamanio;
@@ -44,8 +45,9 @@ int almacenar_particion(t_memoria segmento, char id, int tamanio,
 	if (existe != NULL || tamanio >= tamanioSegmento) {
 		return -1;
 	}
+	t_fragmento* existeElIndice = buscar_elemento_existente(last_pos_segmento);
 
-	if (tamanio <= libre) {
+	if (tamanio <= libre && existeElIndice == NULL) {
 		return crear_particion_nueva(segmento, id, tamanio, contenido, false);
 	} else {
 		t_fragmento* guardar_aca = buscar_la_primera_que_entre(tamanio);
@@ -62,6 +64,10 @@ int eliminar_particion(t_memoria segmento, char id) {
 		return 0;
 	}
 	eliminar->particion->libre = true;
+	t_fragmento* siguiente = list_get(listaParticiones, eliminar->index+1);
+	if (siguiente == NULL){
+		last_pos_segmento = eliminar->particion->inicio;
+	}
 	return 1;
 }
 
@@ -181,6 +187,12 @@ void fragmento_destroy(t_fragmento* self) {
 	free(self);
 }
 
-
+t_fragmento* buscar_elemento_existente(int inicio){
+	bool _existe(t_fragmento* elem) {
+		return (elem->particion->inicio == inicio);
+	}
+		t_fragmento* existe = list_find(listaParticiones, (void*)_existe);
+		return existe;
+}
 
 
