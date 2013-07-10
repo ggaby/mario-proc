@@ -69,11 +69,11 @@ t_socket_buffer* mensaje_serializer(t_mensaje* mensaje);
 t_mensaje* mensaje_deserializer(t_socket_buffer* buffer, uint32_t dataStart);
 t_mensaje* mensaje_clone(t_mensaje* mensaje);
 void mensaje_send(t_mensaje* mensaje, t_socket_client *client);
-t_connection_info* t_connection_create(char* ip_y_puerto);
-void t_connection_destroy(t_connection_info* self);
-t_stream* t_connection_info_serialize(t_connection_info* self);
-t_connection_info* t_connection_info_deserialize(char* data);
-char* t_connection_info_to_string(t_connection_info* connection);
+t_connection_info* connection_create(char* ip_y_puerto);
+void connection_destroy(t_connection_info* self);
+t_stream* connection_info_serialize(t_connection_info* self);
+t_connection_info* connection_info_deserialize(char* data);
+char* connection_info_to_string(t_connection_info* connection);
 t_stream* get_info_nivel_response_create_serialized(t_connection_info* nivel,
 		t_connection_info* planificador);
 t_get_info_nivel_response* get_info_nivel_response_deserialize(char* data);

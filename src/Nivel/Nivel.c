@@ -128,7 +128,7 @@ nivel_t_nivel* nivel_create(char* config_path){
 	new->tiempoChequeoDeadlock = config_get_int_value(config, "TiempoChequeoDeadlock");
 	new->recovery = config_get_int_value(config, "Recovery");
 
-	new->orquestador = t_connection_create(config_get_string_value(config, "orquestador"));
+	new->orquestador = connection_create(config_get_string_value(config, "orquestador"));
 
 	//TODO Ver como se cargan los recursos
 
@@ -164,7 +164,7 @@ nivel_t_nivel* nivel_create(char* config_path){
 
 void nivel_destroy(nivel_t_nivel* self) {
 	free(self->nombre);
-	t_connection_destroy(self->orquestador);
+	connection_destroy(self->orquestador);
 	log_destroy(self->logger);
 	//TODO Free de los recursos
 	free(self);

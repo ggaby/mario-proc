@@ -153,7 +153,7 @@ void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client,
 	char* nivel_str = string_from_format("%s:%d",
 			sockets_getIp(el_nivel->socket_nivel->socket),
 			sockets_getPort(el_nivel->socket_nivel->socket));
-	t_connection_info* nivel_connection = t_connection_create(nivel_str);
+	t_connection_info* nivel_connection = connection_create(nivel_str);
 
 	t_stream* response_data = get_info_nivel_response_create_serialized(
 			nivel_connection, el_nivel->planificador);
@@ -163,7 +163,7 @@ void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client,
 	mensaje_destroy(response);
 
 	free(nivel_str);
-	t_connection_destroy(nivel_connection);
+	connection_destroy(nivel_connection);
 	free(nivel_pedido);
 	free(response_data);
 }

@@ -41,8 +41,8 @@ void mensaje_destroy(t_mensaje* mensaje) {
 t_stream* get_info_nivel_response_create_serialized(t_connection_info* nivel,
 		t_connection_info* planificador) {
 
-	t_stream* niv = t_connection_info_serialize(nivel);
-	t_stream* planif = t_connection_info_serialize(planificador);
+	t_stream* niv = connection_info_serialize(nivel);
+	t_stream* planif = connection_info_serialize(planificador);
 	t_stream* result = malloc(sizeof(t_stream));
 	result->data = malloc(niv->length + planif->length);
 	memcpy(result->data, niv->data, niv->length);
@@ -84,12 +84,12 @@ t_get_info_nivel_response* get_info_nivel_response_deserialize(char* data) {
 }
 
 void get_info_nivel_response_destroy(t_get_info_nivel_response* self) {
-	t_connection_destroy(self->nivel);
-	t_connection_destroy(self->planificador);
+	connection_destroy(self->nivel);
+	connection_destroy(self->planificador);
 	free(self);
 }
 
-t_stream* t_connection_info_serialize(t_connection_info* self) {
+t_stream* connection_info_serialize(t_connection_info* self) {
 	t_stream* result = malloc(sizeof(t_stream));
 	char* buffer = malloc(sizeof(uint32_t) + strlen(self->ip) + 1);
 	int tmpsize, offset = 0;
@@ -105,7 +105,7 @@ t_stream* t_connection_info_serialize(t_connection_info* self) {
 	return result;
 }
 
-t_connection_info* t_connection_info_deserialize(char* data) {
+t_connection_info* connection_info_deserialize(char* data) {
 	t_connection_info* new = malloc(sizeof(t_connection_info));
 	int tmpsize, offset = 0;
 
@@ -168,7 +168,7 @@ void mensaje_send(t_mensaje* mensaje, t_socket_client* client) {
 	sockets_bufferDestroy(buffer);
 }
 
-t_connection_info* t_connection_create(char* ip_y_puerto) {
+t_connection_info* connection_create(char* ip_y_puerto) {
 	t_connection_info* new = malloc(sizeof(t_connection_info));
 	char** tokens = string_split(ip_y_puerto, ":");
 	new->ip = string_duplicate(tokens[0]);
@@ -177,10 +177,10 @@ t_connection_info* t_connection_create(char* ip_y_puerto) {
 	return new;
 }
 
-char* t_connection_info_to_string(t_connection_info* connection) {
+char* connection_info_to_string(t_connection_info* connection) {
 	return string_from_format("%s:%d", connection->ip, connection->puerto);
 }
-void t_connection_destroy(t_connection_info* self) {
+void connection_destroy(t_connection_info* self) {
 	free(self->ip);
 	free(self);
 }

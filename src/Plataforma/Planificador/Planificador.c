@@ -112,6 +112,8 @@ t_planificador* planificador_create(char* config_path){
 
 	new->personajes_ready = queue_create();
 	new->personajes_blocked = queue_create();
+
+	config_destroy(config);
 	return new;
 }
 

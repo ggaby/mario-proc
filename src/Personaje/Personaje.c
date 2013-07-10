@@ -131,7 +131,7 @@ t_personaje* personaje_create(char* config_path) {
 	new->plan_de_niveles = config_get_array_value(config, "planDeNiveles");
 	new->objetivos = _personaje_load_objetivos(config, new->plan_de_niveles);
 	new->vidas = config_get_int_value(config, "vidas");
-	new->orquestador = t_connection_create(
+	new->orquestador = connection_create(
 			config_get_string_value(config, "orquestador"));
 
 	void morir(char* mensaje) {
@@ -170,7 +170,7 @@ void personaje_destroy(t_personaje* self) {
 	array_destroy(self->plan_de_niveles);
 	dictionary_destroy_and_destroy_elements(self->objetivos,
 			(void*) array_destroy);
-	t_connection_destroy(self->orquestador);
+	connection_destroy(self->orquestador);
 	log_destroy(self->logger);
 	free(self);
 }
@@ -257,8 +257,8 @@ t_personaje_nivel* personaje_nivel_create(t_connection_info* nivel,
 }
 
 void personaje_nivel_destroy(t_personaje_nivel* self) {
-	t_connection_destroy(self->nivel);
-	t_connection_destroy(self->planificador);
+	connection_destroy(self->nivel);
+	connection_destroy(self->planificador);
 	free(self);
 }
 

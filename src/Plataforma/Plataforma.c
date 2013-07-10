@@ -40,7 +40,7 @@ t_plataforma* plataforma_create(char* config_path) {
 void plataforma_nivel_destroy(plataforma_t_nivel* nivel) {
 	free(nivel->nombre);
 	sockets_destroyClient(nivel->socket_nivel);
-	t_connection_destroy(nivel->planificador);
+	connection_destroy(nivel->planificador);
 	free(nivel);
 }
 
@@ -59,7 +59,7 @@ int plataforma_create_nivel(t_plataforma* self, char* nombre_nivel,
 
 	new->nombre = string_duplicate(nombre_nivel);
 	new->socket_nivel = socket_nivel;
-	new->planificador = t_connection_create(planificador_connection_info);
+	new->planificador = connection_create(planificador_connection_info);
 
 	thread_planificador_args* args = malloc(sizeof(thread_planificador_args));
 	args->plataforma = self;
