@@ -18,8 +18,17 @@ typedef struct {
 	plataforma_t_nivel* nivel;
 } thread_planificador_args;
 
+typedef struct {
+	int puerto;
+	t_plataforma* plataforma;
+	t_list* clients;
+	t_list* servers;
+} t_orquestador;
+
+t_orquestador* orquestador_create(int puerto, t_plataforma* plataforma);
+void orquestador_destroy(t_orquestador* self);
 void* orquestador(void* plat);
-bool procesar_handshake_nivel(t_socket_client* socket_nivel);
+bool procesar_handshake_nivel(t_orquestador* self, t_socket_client* socket_nivel);
 void mostrar_mensaje(t_mensaje* mensaje, t_socket_client* client);
 void process_request(t_mensaje* request, t_socket_client* client, t_plataforma* plataforma);
 void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client, t_plataforma* plataforma);
