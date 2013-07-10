@@ -53,26 +53,27 @@ void* orquestador(void* plat) {
 		}
 
 		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
+		int tipo_mensaje = mensaje->type;
 		sockets_bufferDestroy(buffer);
+		mensaje_destroy(mensaje);
 
-		switch (mensaje->type) {
-		case M_HANDSHAKE_PERSONAJE:
-			responder_handshake(client);
-			break;
-		case M_HANDSHAKE_NIVEL:
-			responder_handshake(client);
-			procesar_handshake_nivel(client);
-			break;
-		default:
-			pthread_mutex_lock(&plataforma->logger_mutex);
-			log_warning(plataforma->logger,
-					"Orquestador: Error al recibir el handshake, tipo de mensaje no valido %d",
-					mensaje->type);
-			pthread_mutex_unlock(&plataforma->logger_mutex);
-			return NULL ; //TODO usar send_error_message!!
+		switch(tipo_mensaje){
+			case M_HANDSHAKE_PERSONAJE:
+				responder_handshake(client);
+				break;
+			case M_HANDSHAKE_NIVEL:
+				responder_handshake(client);
+				if(!procesar_handshake_nivel(client)){
+					return NULL;//TODO usar send_error_message!!
+				};
+				break;
+			default:
+				pthread_mutex_lock(&plataforma->logger_mutex);
+				log_warning(plataforma->logger, "Orquestador: Error al recibir el handshake, tipo de mensaje no valido %d", tipo_mensaje);
+				pthread_mutex_unlock(&plataforma->logger_mutex);
+				return NULL; //TODO usar send_error_message!!
 		}
 
-		mensaje_destroy(mensaje);
 
 		return client;
 	}
@@ -176,7 +177,7 @@ void orquestador_send_error_message(char* error_description,
 	mensaje_destroy(response);
 }
 
-void procesar_handshake_nivel(t_socket_client* socket_nivel) {
+bool procesar_handshake_nivel(t_socket_client* socket_nivel) {
 
 	t_mensaje* mensaje = mensaje_create(M_GET_NOMBRE_NIVEL_REQUEST);
 	mensaje_send(mensaje, socket_nivel);
@@ -190,7 +191,7 @@ void procesar_handshake_nivel(t_socket_client* socket_nivel) {
 		log_warning(plataforma->logger,
 				"Orquestador: Error al recibir el nombre del nivel");
 		pthread_mutex_unlock(&plataforma->logger_mutex);
-		return;
+		return false;
 	}
 
 	mensaje = mensaje_deserializer(buffer, 0);
@@ -203,14 +204,25 @@ void procesar_handshake_nivel(t_socket_client* socket_nivel) {
 		log_error(plataforma->logger,
 				"Orquestador: Tipo de respuesta inválido");
 		pthread_mutex_unlock(&plataforma->logger_mutex);
-		return;
+		return false;
 	}
 
 	if (plataforma_create_nivel(plataforma, mensaje->payload, socket_nivel,
 			"127.0.0.1:9000") != 0) { //TODO To-do mal aca! cambiar la ip por la ip real.
+
+		mensaje_destroy(mensaje);
 		sockets_destroyClient(socket_nivel);
+
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_error(plataforma->logger,
+				"Orquestador: No se pudo crear el planificador para el nivel %s", mensaje->payload);
+		pthread_mutex_unlock(&plataforma->logger_mutex);
+
+		return false;
 	}
+
 	mensaje_destroy(mensaje);
+	return true;
 }
 
 void responder_handshake(t_socket_client* client) {

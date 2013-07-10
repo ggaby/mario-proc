@@ -20,6 +20,8 @@
 #define M_HANDSHAKE_NIVEL 2
 //Errores (11-20)
 #define M_ERROR 11
+
+//TODO No puede separarse en request y response ya que depende de donde se vea... o no?
 //Request(21-40)
 #define M_GET_INFO_NIVEL_REQUEST 21
 #define M_GET_NOMBRE_NIVEL_REQUEST 22
@@ -27,6 +29,9 @@
 #define M_GET_INFO_NIVEL_RESPONSE 41
 #define M_HANDSHAKE_RESPONSE 42
 #define M_GET_NOMBRE_NIVEL_RESPONSE 43
+
+#define M_TURNO_FINALIZADO 44
+#define M_NOTIFICACION_MOVIMIENTO 45
 
 //Contenidos de Mensajes
 #define PERSONAJE_HANDSHAKE "Aquí un personaje"

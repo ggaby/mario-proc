@@ -20,7 +20,7 @@ typedef struct {
 
 void* orquestador(void* plat);
 void responder_handshake(t_socket_client* client);
-void procesar_handshake_nivel(t_socket_client* socket_nivel);
+bool procesar_handshake_nivel(t_socket_client* socket_nivel);
 void mostrar_mensaje(t_mensaje* mensaje, t_socket_client* client);
 void process_request(t_mensaje* request, t_socket_client* client, t_plataforma* plataforma);
 void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client, t_plataforma* plataforma);
