@@ -10,9 +10,9 @@
 
 bool verificar_argumentos(int argc, char* argv[]);
 
-int main (int argc,char *argv[]){
+int main(int argc, char *argv[]) {
 
-	if(!verificar_argumentos(argc, argv)){
+	if (!verificar_argumentos(argc, argv)) {
 		printf("argumentos invalidos!\n");
 		return EXIT_FAILURE;
 	}
@@ -21,11 +21,11 @@ int main (int argc,char *argv[]){
 	self = nivel_create(argv[1]);
 
 	t_socket_client* socket_orquestador = nivel_conectar_a_orquestador(self);
-	if(socket_orquestador == NULL){
+	if (socket_orquestador == NULL ) {
 		nivel_destroy(self);
 		return EXIT_FAILURE;
 	}
-	
+
 	//Se crea un socket para escuchar conexiones
 
 	t_socket_server* server = sockets_createServer(NULL, self->puerto);
@@ -38,7 +38,8 @@ int main (int argc,char *argv[]){
 		return EXIT_FAILURE;
 	}
 
-	log_info(self->logger, "Escuchando conexiones entrantes en 127.0.0.1:%d", self->puerto);
+	log_info(self->logger, "Escuchando conexiones entrantes en 127.0.0.1:%d",
+			self->puerto);
 
 	t_list* servers = list_create();
 	list_add(servers, server);
@@ -57,26 +58,20 @@ int main (int argc,char *argv[]){
 		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
 		sockets_bufferDestroy(buffer);
 
-		if (mensaje->type != M_HANDSHAKE_PERSONAJE || strcmp(mensaje->payload, PERSONAJE_HANDSHAKE) != 0) {
+		if (mensaje->type != M_HANDSHAKE_PERSONAJE
+				|| strcmp(mensaje->payload, PERSONAJE_HANDSHAKE) != 0) {
 			mensaje_destroy(mensaje);
 			sockets_destroyClient(client);
 			return NULL ;
 		}
 
 		mensaje_destroy(mensaje);
-		log_info(self->logger, "Personaje conectado por el socket %d", client->socket->desc);
 
-		//TODO ESTE BLOQUE ES IGUAL AL RESPONDER HANDSHAKE DE ORQUESTADOR
-		mensaje = mensaje_create(M_HANDSHAKE_RESPONSE);
-		mensaje_setdata(mensaje, strdup(HANDSHAKE_SUCCESS),
-				strlen(HANDSHAKE_SUCCESS) + 1);
-		mensaje_send(mensaje, client);
-		mensaje_destroy(mensaje);
-		//----
+		responder_handshake(client, self->logger, NULL, "Nivel");
 
 		return client;
 	}
-	
+
 	//closure que maneja los mensajes recibidos
 	int recvClosure(t_socket_client* client) {
 		t_socket_buffer* buffer = sockets_recv(client);
@@ -90,19 +85,21 @@ int main (int argc,char *argv[]){
 
 		//TODO hacer un case, por cada tipo de mensaje que manden los personajes y el orquestador
 
-		switch(mensaje->type){
-			case M_GET_NOMBRE_NIVEL_REQUEST:
-				nivel_get_nombre(self, client);
-				break;
-			default:
-				log_warning(self->logger, "Tipo del mensaje recibido no valido tipo: %d", mensaje->type);
-				return false; //TODO WTF this FALSE!! hacer un send_error_message
+		switch (mensaje->type) {
+		case M_GET_NOMBRE_NIVEL_REQUEST:
+			nivel_get_nombre(self, client);
+			break;
+		default:
+			log_warning(self->logger,
+					"Tipo del mensaje recibido no valido tipo: %d",
+					mensaje->type);
+			return false; //TODO WTF this FALSE!! hacer un send_error_message
 		}
 
 		mensaje_destroy(mensaje);
 		return true;
 	}
-	
+
 	t_list* clients = list_create();
 	list_add(clients, socket_orquestador);
 
@@ -121,14 +118,16 @@ int main (int argc,char *argv[]){
 	return EXIT_SUCCESS;
 }
 
-nivel_t_nivel* nivel_create(char* config_path){
+nivel_t_nivel* nivel_create(char* config_path) {
 	nivel_t_nivel* new = malloc(sizeof(nivel_t_nivel));
 	t_config* config = config_create(config_path);
 	new->nombre = string_duplicate(config_get_string_value(config, "Nombre"));
-	new->tiempoChequeoDeadlock = config_get_int_value(config, "TiempoChequeoDeadlock");
+	new->tiempoChequeoDeadlock = config_get_int_value(config,
+			"TiempoChequeoDeadlock");
 	new->recovery = config_get_int_value(config, "Recovery");
 
-	new->orquestador = connection_create(config_get_string_value(config, "orquestador"));
+	new->orquestador = connection_create(
+			config_get_string_value(config, "orquestador"));
 
 	//TODO Ver como se cargan los recursos
 
@@ -139,17 +138,20 @@ nivel_t_nivel* nivel_create(char* config_path){
 		log_file = string_duplicate(config_get_string_value(config, "logFile"));
 	}
 	if (config_has_property(config, "logLevel")) {
-		log_level = string_duplicate(config_get_string_value(config, "logLevel"));
+		log_level = string_duplicate(
+				config_get_string_value(config, "logLevel"));
 	}
 
-	new->logger = log_create(log_file, "Nivel", true, log_level_from_string(log_level));
+	new->logger = log_create(log_file, "Nivel", true,
+			log_level_from_string(log_level));
 
 	free(log_file);
 	free(log_level);
 
 	if (!config_has_property(config, "puerto")) {
 		config_destroy(config);
-		log_error(new->logger, "Error en archivo de configuracion: falta el puerto.");
+		log_error(new->logger,
+				"Error en archivo de configuracion: falta el puerto.");
 		nivel_destroy(new);
 		return NULL ;
 	}
@@ -170,9 +172,10 @@ void nivel_destroy(nivel_t_nivel* self) {
 	free(self);
 }
 
-void nivel_get_nombre(nivel_t_nivel* self, t_socket_client* client){
+void nivel_get_nombre(nivel_t_nivel* self, t_socket_client* client) {
 	t_mensaje* mensaje = mensaje_create(M_GET_NOMBRE_NIVEL_RESPONSE);
-	mensaje_setdata(mensaje, string_duplicate(self->nombre), strlen(self->nombre)+1);
+	mensaje_setdata(mensaje, string_duplicate(self->nombre),
+			strlen(self->nombre) + 1);
 	mensaje_send(mensaje, client);
 	mensaje_destroy(mensaje);
 }
@@ -187,31 +190,32 @@ bool verificar_argumentos(int argc, char* argv[]) {
 }
 
 //TODO esta funcion se puede extraer a la lib de sockets (ver que comparte to-do con el de personaje, hay que parametrizarla con (t_conection_info, t_log, int puerto)
-t_socket_client* nivel_conectar_a_orquestador(nivel_t_nivel* self){
+t_socket_client* nivel_conectar_a_orquestador(nivel_t_nivel* self) {
 
 	//Se crea un socket que se conecta al orquestador,
 
-	t_socket_client* socket_orquestador=sockets_createClient(NULL, self->puerto);
+	t_socket_client* socket_orquestador = sockets_createClient(NULL,
+			self->puerto);
 
-	if(socket_orquestador == NULL)
-	{
-		log_error(self->logger, "Error al crear el socket para conectarse con el orquestador");
-		return NULL;
+	if (socket_orquestador == NULL ) {
+		log_error(self->logger,
+				"Error al crear el socket para conectarse con el orquestador");
+		return NULL ;
 	}
 
 	//Si no puede conectarse al orquestador,
 	//se borra el socket que se creo
-	if(sockets_connect(socket_orquestador,self->orquestador->ip, self->orquestador->puerto) == 0)
-	{
+	if (sockets_connect(socket_orquestador, self->orquestador->ip,
+			self->orquestador->puerto) == 0) {
 		sockets_destroyClient(socket_orquestador);
-		return NULL;
+		return NULL ;
 	}
-
 
 	//Se crear un mensaje para enviar el HANDSHAKE
 
 	t_mensaje* mensaje = mensaje_create(M_HANDSHAKE_NIVEL);
-	mensaje_setdata(mensaje, strdup(NIVEL_HANDSHAKE), strlen(NIVEL_HANDSHAKE) + 1);
+	mensaje_setdata(mensaje, strdup(NIVEL_HANDSHAKE),
+			strlen(NIVEL_HANDSHAKE) + 1);
 
 	log_info(self->logger, "Enviando handshake al orquestador");
 
@@ -225,25 +229,27 @@ t_socket_client* nivel_conectar_a_orquestador(nivel_t_nivel* self){
 	if (buffer == NULL ) {
 		log_info(self->logger, "Error en el resultado del handshake");
 		sockets_destroyClient(socket_orquestador);
-		return NULL;
+		return NULL ;
 	}
 
 	t_mensaje* rta_handshake = mensaje_deserializer(buffer, 0);
 	sockets_bufferDestroy(buffer);
 
 	if (rta_handshake->length != (strlen(HANDSHAKE_SUCCESS) + 1)
-				|| (!string_equals_ignore_case((char*) rta_handshake->payload, HANDSHAKE_SUCCESS))) {
+			|| (!string_equals_ignore_case((char*) rta_handshake->payload,
+					HANDSHAKE_SUCCESS))) {
 
 		log_error(self->logger, "Error en la respuesta del handshake");
 		mensaje_destroy(rta_handshake);
 		sockets_destroyClient(socket_orquestador);
-		return NULL;
+		return NULL ;
 	}
 
 	mensaje_destroy(rta_handshake);
 
-	log_info(self->logger, "Conectado con el Orquestador: Origen: 127.0.0.1:%d, Destino: %s:%d",
-				self->puerto, self->orquestador->ip, self->orquestador->puerto);
+	log_info(self->logger,
+			"Conectado con el Orquestador: Origen: 127.0.0.1:%d, Destino: %s:%d",
+			self->puerto, self->orquestador->ip, self->orquestador->puerto);
 
 	return socket_orquestador;
 

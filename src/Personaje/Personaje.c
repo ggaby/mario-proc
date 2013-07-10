@@ -62,8 +62,15 @@ int main(int argc, char* argv[]) {
 			self->nivel_info->planificador->ip,
 			self->nivel_info->planificador->puerto);
 
-	//personaje_conectar_a_nivel(self);
-	//	personaje_conectar_a_planificador(self);
+	if (!personaje_conectar_a_nivel(self)) {
+		personaje_destroy(self);
+		return EXIT_FAILURE;
+	}
+
+	if (!personaje_conectar_a_planificador(self)) {
+		personaje_destroy(self);
+		return EXIT_FAILURE;
+	}
 
 	log_info(self->logger, "Conexión terminada");
 	personaje_destroy(self);
@@ -236,4 +243,23 @@ bool verificar_argumentos(int argc, char* argv[]) {
 		return false;
 	}
 	return true;
+}
+
+bool personaje_conectar_a_nivel(t_personaje* self) {
+	self->socket_nivel = sockets_conectar_a_servidor(NULL, self->puerto,
+			self->nivel_info->nivel->ip, self->nivel_info->nivel->puerto,
+			self->logger, M_HANDSHAKE_PERSONAJE, PERSONAJE_HANDSHAKE,
+			HANDSHAKE_SUCCESS, "Nivel");
+
+	return (self->socket_nivel != NULL );
+}
+
+bool personaje_conectar_a_planificador(t_personaje* self) {
+	self->socket_planificador = sockets_conectar_a_servidor(NULL, self->puerto,
+			self->nivel_info->planificador->ip,
+			self->nivel_info->planificador->puerto, self->logger,
+			M_HANDSHAKE_PERSONAJE, PERSONAJE_HANDSHAKE, HANDSHAKE_SUCCESS,
+			"Planificador");
+
+	return (self->socket_planificador != NULL );
 }

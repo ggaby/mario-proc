@@ -78,4 +78,6 @@ t_stream* get_info_nivel_response_create_serialized(t_connection_info* nivel,
 		t_connection_info* planificador);
 t_get_info_nivel_response* get_info_nivel_response_deserialize(char* data);
 void get_info_nivel_response_destroy(t_get_info_nivel_response* self);
+void responder_handshake(t_socket_client* client, t_log* logger,
+		pthread_mutex_t* log_mutex, char* name);
 #endif /* MENSAJE_H_ */

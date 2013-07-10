@@ -57,23 +57,26 @@ void* orquestador(void* plat) {
 		sockets_bufferDestroy(buffer);
 		mensaje_destroy(mensaje);
 
-		switch(tipo_mensaje){
-			case M_HANDSHAKE_PERSONAJE:
-				responder_handshake(client);
-				break;
-			case M_HANDSHAKE_NIVEL:
-				responder_handshake(client);
-				if(!procesar_handshake_nivel(client)){
-					return NULL;//TODO usar send_error_message!!
-				};
-				break;
-			default:
-				pthread_mutex_lock(&plataforma->logger_mutex);
-				log_warning(plataforma->logger, "Orquestador: Error al recibir el handshake, tipo de mensaje no valido %d", tipo_mensaje);
-				pthread_mutex_unlock(&plataforma->logger_mutex);
-				return NULL; //TODO usar send_error_message!!
+		switch (tipo_mensaje) {
+		case M_HANDSHAKE_PERSONAJE:
+			responder_handshake(client, plataforma->logger,
+					&plataforma->logger_mutex, "Orquestador");
+			break;
+		case M_HANDSHAKE_NIVEL:
+			responder_handshake(client, plataforma->logger,
+					&plataforma->logger_mutex, "Orquestador");
+			if (!procesar_handshake_nivel(client)) {
+				return NULL ; //TODO usar send_error_message!!
+			}
+			break;
+		default:
+			pthread_mutex_lock(&plataforma->logger_mutex);
+			log_warning(plataforma->logger,
+					"Orquestador: Error al recibir el handshake, tipo de mensaje no valido %d",
+					tipo_mensaje);
+			pthread_mutex_unlock(&plataforma->logger_mutex);
+			return NULL ; //TODO usar send_error_message!!
 		}
-
 
 		return client;
 	}
@@ -215,7 +218,8 @@ bool procesar_handshake_nivel(t_socket_client* socket_nivel) {
 
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_error(plataforma->logger,
-				"Orquestador: No se pudo crear el planificador para el nivel %s", mensaje->payload);
+				"Orquestador: No se pudo crear el planificador para el nivel %s",
+				mensaje->payload);
 		pthread_mutex_unlock(&plataforma->logger_mutex);
 
 		return false;
@@ -223,19 +227,6 @@ bool procesar_handshake_nivel(t_socket_client* socket_nivel) {
 
 	mensaje_destroy(mensaje);
 	return true;
-}
-
-void responder_handshake(t_socket_client* client) {
-	pthread_mutex_lock(&plataforma->logger_mutex);
-	log_info(plataforma->logger,
-			"Orquestador: Cliente conectado por el socket %d",
-			client->socket->desc);
-	pthread_mutex_unlock(&plataforma->logger_mutex);
-	t_mensaje* mensaje = mensaje_create(M_HANDSHAKE_RESPONSE);
-	mensaje_setdata(mensaje, strdup(HANDSHAKE_SUCCESS),
-			strlen(HANDSHAKE_SUCCESS) + 1);
-	mensaje_send(mensaje, client);
-	mensaje_destroy(mensaje);
 }
 
 void mostrar_mensaje(t_mensaje* mensaje, t_socket_client* client) {

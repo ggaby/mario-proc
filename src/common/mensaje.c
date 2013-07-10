@@ -180,7 +180,25 @@ t_connection_info* connection_create(char* ip_y_puerto) {
 char* connection_info_to_string(t_connection_info* connection) {
 	return string_from_format("%s:%d", connection->ip, connection->puerto);
 }
+
 void connection_destroy(t_connection_info* self) {
 	free(self->ip);
 	free(self);
+}
+
+void responder_handshake(t_socket_client* client, t_log* logger,
+		pthread_mutex_t* log_mutex, char* name) {
+	if (log_mutex != NULL ) {
+		pthread_mutex_lock(log_mutex);
+	}
+	log_info(logger, "%s: Cliente conectado por el socket %d", name,
+			client->socket->desc);
+	if (log_mutex != NULL ) {
+		pthread_mutex_unlock(log_mutex);
+	}
+	t_mensaje* mensaje = mensaje_create(M_HANDSHAKE_RESPONSE);
+	mensaje_setdata(mensaje, strdup(HANDSHAKE_SUCCESS),
+			strlen(HANDSHAKE_SUCCESS) + 1);
+	mensaje_send(mensaje, client);
+	mensaje_destroy(mensaje);
 }
