@@ -172,7 +172,7 @@ void planificador_finalizar_turno(t_planificador* self) {
 		planificador_cambiar_de_personaje(self);
 		planificador_resetear_quantum(self);
 	}
-
+	//TODO manejar el personaje ejecutando en una variable aparte
 	planificador_t_personaje* personaje = queue_peek(self->personajes_ready);
 	planificador_mover_personaje(self, personaje);
 }
@@ -182,6 +182,7 @@ void planificador_finalizar_turno(t_planificador* self) {
  */
 void planificador_mover_personaje(t_planificador* self,
 		planificador_t_personaje* personaje) {
+	//TODO qeu no reciba el personaje
 	sleep(self->tiempo_entre_movimientos);
 	self->quantum_actual--;
 
