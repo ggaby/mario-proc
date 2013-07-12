@@ -10,6 +10,7 @@
 #include <commons/string.h>
 #include "Orquestador/Orquestador.h"
 #include "Planificador/Planificador.h"
+#include <commons/config.h>
 
 int main(int argc, char* argv[]) {
 
@@ -29,10 +30,14 @@ t_plataforma* plataforma_create(char* config_path) {
 	t_plataforma* new = malloc(sizeof(t_plataforma));
 	new->logger = log_create("plataforma.log", "Plataforma", true,
 			log_level_from_string("TRACE"));
-	pthread_mutex_init(&new->logger_mutex, NULL );
+	pthread_mutex_init(&new->logger_mutex, NULL);
 	new->niveles = list_create();
-
 	new->config_path = string_duplicate(config_path);
+
+	t_config* config = config_create(config_path);
+	new->ip = string_duplicate(config_get_string_value(config, "ip"));
+	config_destroy(config);
+
 	return new;
 }
 

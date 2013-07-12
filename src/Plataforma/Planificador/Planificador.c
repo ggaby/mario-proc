@@ -75,7 +75,7 @@ void* planificador(void* args) {
 		return true;
 	}
 
-	sockets_create_little_server(NULL, self->connection_info->puerto,
+	sockets_create_little_server(self->connection_info->ip, self->connection_info->puerto,
 			plataforma->logger, &plataforma->logger_mutex, self->log_name,
 			self->servers, self->clients, &acceptClosure, &recvClosure);
 

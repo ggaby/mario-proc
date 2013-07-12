@@ -75,7 +75,7 @@ void* orquestador(void* plat) {
 		return true;
 	}
 
-	sockets_create_little_server(NULL, self->puerto, plataforma->logger,
+	sockets_create_little_server(plataforma->ip, self->puerto, plataforma->logger,
 			&plataforma->logger_mutex, "Orquestador", self->servers,
 			self->clients, &acceptClosure, &recvClosure);
 
@@ -206,8 +206,8 @@ bool procesar_handshake_nivel(t_orquestador* self,
 		return false;
 	}
 
-	char* planificador_connection_info = string_from_format("127.0.0.1:%d",
-			9000 + self->planificadores_count);
+	char* planificador_connection_info = string_from_format("%s:%d",
+			plataforma->ip, 9000 + self->planificadores_count);
 
 	if (plataforma_create_nivel(plataforma, mensaje->payload, socket_nivel,
 			planificador_connection_info) != 0) {

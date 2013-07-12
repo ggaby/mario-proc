@@ -52,6 +52,7 @@ typedef struct {
 	t_orquestador* orquestador;
 	t_log* logger;
 	pthread_mutex_t logger_mutex;
+	char* ip;
 	char* config_path;
 } t_plataforma;
 
