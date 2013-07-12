@@ -35,7 +35,6 @@ typedef struct {
 	t_socket_client* socket_planificador;
 } t_personaje;
 
-
 t_personaje* personaje_create(char* config_path);
 void personaje_destroy(t_personaje* self);
 t_personaje_nivel* personaje_nivel_create(t_connection_info* nivel,

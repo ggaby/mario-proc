@@ -493,20 +493,19 @@ void sockets_destroyServer(t_socket_server* server) {
 
 }
 
- t_socket_client* sockets_conectar_a_servidor(char* mi_ip,
-		int mi_puerto, char* server_ip, int server_puerto, t_log* logger,
-		int handshake_type, char* handshake_msg, char* handshake_success,
-		char* server_name) {
+t_socket_client* sockets_conectar_a_servidor(char* mi_ip, int mi_puerto,
+		char* server_ip, int server_puerto, t_log* logger, int handshake_type,
+		char* handshake_msg, char* handshake_success, char* server_name) {
 	t_socket_client* socket_client = sockets_createClient(mi_ip, mi_puerto);
 
 	if (socket_client == NULL ) {
 		log_error(logger, "Error al crear el socket");
-		return NULL;
+		return NULL ;
 	}
 
 	if (sockets_connect(socket_client, server_ip, server_puerto) == 0) {
 		log_error(logger, "Error al conectar con %s", server_name);
-		return NULL;
+		return NULL ;
 	}
 
 	log_info(logger, "Conectando con %s...", server_name);
@@ -522,7 +521,7 @@ void sockets_destroyServer(t_socket_server* server) {
 
 	if (buffer == NULL ) {
 		log_error(logger, "Error al recibir la respuesta del handshake");
-		return NULL;
+		return NULL ;
 	}
 
 	t_mensaje* rta_handshake = mensaje_deserializer(buffer, 0);
@@ -533,7 +532,7 @@ void sockets_destroyServer(t_socket_server* server) {
 					handshake_success))) {
 		log_error(logger, "Error en la respuesta del handshake");
 		mensaje_destroy(rta_handshake);
-		return NULL;
+		return NULL ;
 	}
 
 	mensaje_destroy(rta_handshake);

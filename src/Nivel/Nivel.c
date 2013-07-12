@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include "Nivel.h"
+#include "../common/list.h"
 #include <commons/string.h>
 #include <commons/collections/list.h>
 
@@ -161,7 +162,7 @@ void nivel_destroy(nivel_t_nivel* self) {
 			return sockets_equalsClients(self->socket_orquestador, elem);
 		}
 
-		list_remove_and_destroy_by_condition(self->clients,
+		my_list_remove_and_destroy_by_condition(self->clients,
 				(void*) is_socket_orquestador, (void*) sockets_destroyClient);
 	}
 

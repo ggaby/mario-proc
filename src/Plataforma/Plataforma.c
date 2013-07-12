@@ -7,9 +7,9 @@
 
 #include <stdlib.h>
 #include "Plataforma.h"
+#include <commons/string.h>
 #include "Orquestador/Orquestador.h"
 #include "Planificador/Planificador.h"
-#include <commons/string.h>
 
 int main(int argc, char* argv[]) {
 
@@ -32,16 +32,8 @@ t_plataforma* plataforma_create(char* config_path) {
 	pthread_mutex_init(&new->logger_mutex, NULL );
 	new->niveles = list_create();
 
-	new->config_path = config_path;
-	//FIXME no hago un duplicate porque sino tengo que hacer free del param, si asigno el puntero no desperdicio memoria, por ende no hace falta hacer free.. es correcto?
+	new->config_path = string_duplicate(config_path);
 	return new;
-}
-
-void plataforma_nivel_destroy(plataforma_t_nivel* nivel) {
-	free(nivel->nombre);
-	sockets_destroyClient(nivel->socket_nivel);
-	connection_destroy(nivel->planificador);
-	free(nivel);
 }
 
 void plataforma_destroy(t_plataforma* self) {
@@ -49,6 +41,11 @@ void plataforma_destroy(t_plataforma* self) {
 	pthread_mutex_destroy(&self->logger_mutex);
 	list_destroy_and_destroy_elements(self->niveles,
 			(void*) plataforma_nivel_destroy);
+	free(self->config_path);
+
+	if (self->orquestador != NULL ) {
+		orquestador_destroy(self->orquestador);
+	}
 	free(self);
 }
 
@@ -59,13 +56,13 @@ int plataforma_create_nivel(t_plataforma* self, char* nombre_nivel,
 
 	new->nombre = string_duplicate(nombre_nivel);
 	new->socket_nivel = socket_nivel;
-	new->planificador = connection_create(planificador_connection_info);
 
 	thread_planificador_args* args = malloc(sizeof(thread_planificador_args));
 	args->plataforma = self;
-	args->nivel = new;
+	args->nombre_nivel = string_duplicate(nombre_nivel);
+	args->planificador_connection_info = connection_create(
+			planificador_connection_info);
 
-	//TODO VER DONDE HACER EL FREE de args (al iniciar planificador?)
 	if (pthread_create(&new->thread_planificador, NULL, planificador,
 			(void*) args) != 0) {
 		plataforma_nivel_destroy(new);
@@ -87,3 +84,17 @@ int plataforma_create_nivel(t_plataforma* self, char* nombre_nivel,
 	return 0;
 }
 
+void plataforma_nivel_destroy(plataforma_t_nivel* nivel) {
+	free(nivel->nombre);
+	sockets_destroyClient(nivel->socket_nivel);
+	connection_destroy(nivel->connection_info);
+	free(nivel);
+}
+
+plataforma_t_nivel* plataforma_get_nivel(t_plataforma* self, char* nombre_nivel) {
+	bool mismo_nombre(plataforma_t_nivel* elem) {
+		return string_equals_ignore_case(elem->nombre, nombre_nivel);
+	}
+
+	return list_find(self->niveles, (void*) mismo_nombre);
+}
