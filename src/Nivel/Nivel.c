@@ -5,11 +5,20 @@
 #include "Nivel.h"
 #include <commons/string.h>
 #include <commons/collections/list.h>
+#include "../common/common_structs.h"
+#include "../common/list.h"
+
+//"common_structs.h"
 
 //Cambiar por el puerto del archivo de configuracion correspondiente
 #define PORT 5001
 
 bool verificar_argumentos(int argc, char* argv[]);
+nivel_t_personaje* nivel_create_personaje(nivel_t_nivel* self,
+		char id_personaje, t_socket_client* socket);
+void cargar_recursos_config(t_config* config, nivel_t_nivel* new);
+void nivel_create_grafica_recurso(nivel_t_nivel* self, t_recurso* recurso);
+t_recurso* nivel_create_recurso(char* config_string);
 
 int main(int argc, char *argv[]) {
 
@@ -49,6 +58,7 @@ int main(int argc, char *argv[]) {
 
 		mensaje_destroy(mensaje);
 
+		list_add(self->personajes, nivel_create_personaje(self, '@', client)); //TODO de donde sale el symbol??? :S
 		responder_handshake(client, self->logger, NULL, "Nivel");
 
 		return client;
@@ -71,6 +81,9 @@ int main(int argc, char *argv[]) {
 		case M_GET_NOMBRE_NIVEL_REQUEST:
 			nivel_get_nombre(self, client);
 			break;
+		case M_SOLICITUD_MOVIMIENTO:
+			//nivel_mover_personaje(self, client, xdestino, ydestino);
+			//TODO mover personaje.
 		default:
 			log_warning(self->logger,
 					"Tipo del mensaje recibido no valido tipo: %d",
@@ -88,6 +101,7 @@ int main(int argc, char *argv[]) {
 
 	while (true) {
 		log_debug(self->logger, "Entro al select");
+		mapa_dibujar(self->mapa);
 		sockets_select(self->servers, self->clients, 0, &acceptClosure,
 				&recvClosure);
 	}
@@ -110,8 +124,6 @@ nivel_t_nivel* nivel_create(char* config_path) {
 	new->orquestador_info = connection_create(
 			config_get_string_value(config, "orquestador"));
 
-	//TODO Ver como se cargan los recursos
-
 	char* log_file = string_duplicate("nivel.log");
 	char* log_level = string_duplicate("INFO");
 
@@ -123,7 +135,7 @@ nivel_t_nivel* nivel_create(char* config_path) {
 				config_get_string_value(config, "logLevel"));
 	}
 
-	new->logger = log_create(log_file, "Nivel", true,
+	new->logger = log_create(log_file, "Nivel", false,
 			log_level_from_string(log_level));
 
 	free(log_file);
@@ -138,6 +150,13 @@ nivel_t_nivel* nivel_create(char* config_path) {
 	}
 
 	new->puerto = config_get_int_value(config, "puerto");
+
+	int cols = config_get_int_value(config, NIVEL_CONFIG_COLUMNAS);
+	int rows = config_get_int_value(config, NIVEL_CONFIG_FILAS);
+
+	new->mapa = mapa_create(rows, cols);
+
+	cargar_recursos_config(config, new);
 
 	config_destroy(config);
 
@@ -161,9 +180,11 @@ void nivel_destroy(nivel_t_nivel* self) {
 			return sockets_equalsClients(self->socket_orquestador, elem);
 		}
 
-		list_remove_and_destroy_by_condition(self->clients,
+		my_list_remove_and_destroy_by_condition(self->clients,
 				(void*) is_socket_orquestador, (void*) sockets_destroyClient);
 	}
+
+	mapa_destroy(self->mapa);
 
 	list_destroy_and_destroy_elements(self->clients,
 			(void*) sockets_destroyClient);
@@ -197,4 +218,107 @@ bool nivel_conectar_a_orquestador(nivel_t_nivel* self) {
 			"Orquestador");
 
 	return (self->socket_orquestador != NULL );
+}
+
+nivel_t_personaje* nivel_create_personaje(nivel_t_nivel* self,
+		char id_personaje, t_socket_client* socket) {
+	nivel_t_personaje* personaje = malloc(sizeof(nivel_t_personaje));
+
+	personaje->id = id_personaje;
+	personaje->posX = 0;
+	personaje->posY = 0;
+	personaje->socket = socket;
+
+	mapa_create_personaje(self->mapa, id_personaje);
+	return personaje;
+}
+
+void nivel_mover_personaje(nivel_t_nivel* self, t_socket_client* client,
+		int xdestino, int ydestino) {
+
+	bool is_personaje(void* elem) {
+		t_socket_client* socket_elem = ((nivel_t_personaje*) elem)->socket;
+		return sockets_equalsClients(socket_elem, client);
+	}
+
+	nivel_t_personaje* personaje = list_find(self->personajes, &is_personaje);
+
+	if (personaje->posX == xdestino && personaje->posY == ydestino) {
+		return;
+	}
+
+	int distancia_a_mover = 1;
+	int x = personaje->posX;
+	int y = personaje->posY;
+
+	//TODO hay logica repetida... despues veremos...
+	if (x != xdestino) {
+		if (x < xdestino) {
+			x += distancia_a_mover;
+		} else {
+			x -= distancia_a_mover;
+		}
+	} else if (y != ydestino) {
+		if (y < ydestino) {
+			y += distancia_a_mover;
+		} else {
+			y -= distancia_a_mover;
+		}
+	}
+
+	if (!mapa_mover_personaje(self->mapa, personaje->id, x, y)) {
+		return;
+	}
+
+	mapa_dibujar(self->mapa);
+	personaje->posX = x;
+	personaje->posY = y;
+
+}
+
+void cargar_recursos_config(t_config* config, nivel_t_nivel* new) {
+
+	int index = 1;
+	char* key = string_from_format("Caja%d", index);
+
+	if (new->recursos == NULL ) {
+		new->recursos = list_create();
+	}
+
+	while (config_has_property(config, key)) {
+		t_recurso* recurso = nivel_create_recurso(
+				config_get_string_value(config, key));
+		list_add(new->recursos, recurso);
+		nivel_create_grafica_recurso(new, recurso);
+		free(key);
+		key = string_from_format("Caja%d", ++index);
+	}
+
+	free(key);
+}
+
+t_recurso* nivel_create_recurso(char* config_string) {
+	//config_string example: Caja1=Flores,F,3,23,5
+	char** values = string_split(config_string, ",");
+
+	t_recurso* new_recurso = malloc(sizeof(t_recurso));
+	new_recurso->nombre = string_duplicate(values[0]);
+	new_recurso->simbolo = values[1][0]; // get first char of string.
+	new_recurso->cantidad = atoi(values[2]);
+	new_recurso->posX = atoi(values[3]);
+	new_recurso->posY = atoi(values[4]);
+
+	free(values[0]);
+	free(values[1]);
+	free(values[2]);
+	free(values[3]);
+	free(values[4]);
+	free(values);
+
+	return new_recurso;
+}
+
+void nivel_create_grafica_recurso(nivel_t_nivel* self, t_recurso* recurso) {
+	mapa_create_caja_recurso(self->mapa, recurso->simbolo, recurso->posX,
+			recurso->posY, recurso->cantidad);
 }

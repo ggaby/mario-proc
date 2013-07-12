@@ -33,6 +33,8 @@
 #define M_TURNO_FINALIZADO 44
 #define M_NOTIFICACION_MOVIMIENTO 45
 
+#define M_SOLICITUD_MOVIMIENTO 56
+
 //Contenidos de Mensajes
 #define PERSONAJE_HANDSHAKE "Aquí un personaje"
 #define NIVEL_HANDSHAKE "Aqui un nivel"

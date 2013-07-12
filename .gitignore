@@ -19,6 +19,7 @@
 #Eclipse
 .cproject
 .project
+/.settings
 
 #Build folders
 /Debug
