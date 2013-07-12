@@ -25,7 +25,8 @@ int guardar_datos(t_fragmento* guardar_aca, t_memoria segmento, char id,
 		char* contenido);
 t_fragmento* fragmento_create(char id, int tamanio, int inicio, bool ocupado);
 void fragmento_destroy(t_fragmento* self);
-void crear_particion_vacia_en_posicion(t_memoria segmento, char id, int tamanio, bool ocupado, int posicion);
+void crear_particion_vacia_en_posicion(t_memoria segmento, char id, int tamanio,
+		bool ocupado, int posicion);
 t_fragmento* buscar_elemento_existente(int inicio);
 
 t_memoria crear_memoria(int tamanio) {
@@ -47,7 +48,7 @@ int almacenar_particion(t_memoria segmento, char id, int tamanio,
 	}
 	t_fragmento* existeElIndice = buscar_elemento_existente(last_pos_segmento);
 
-	if (tamanio <= libre && existeElIndice == NULL) {
+	if (tamanio <= libre && existeElIndice == NULL ) {
 		return crear_particion_nueva(segmento, id, tamanio, contenido, false);
 	} else {
 		t_fragmento* guardar_aca = buscar_la_primera_que_entre(tamanio);
@@ -64,8 +65,8 @@ int eliminar_particion(t_memoria segmento, char id) {
 		return 0;
 	}
 	eliminar->particion->libre = true;
-	t_fragmento* siguiente = list_get(listaParticiones, eliminar->index+1);
-	if (siguiente == NULL){
+	t_fragmento* siguiente = list_get(listaParticiones, eliminar->index + 1);
+	if (siguiente == NULL ) {
 		last_pos_segmento = eliminar->particion->inicio;
 	}
 	return 1;
@@ -82,18 +83,18 @@ t_list* particiones(t_memoria segmento) {
 		return elem->particion;
 	}
 
-	bool _esMayor(t_particion* elem1, t_particion* elem2){
+	bool _esMayor(t_particion* elem1, t_particion* elem2) {
 		return elem1->inicio < elem2->inicio;
 	}
 	t_list *listaPantalla = list_map(listaParticiones, (void*) get_particion);
 	list_sort(listaPantalla, (void*) _esMayor);
 	if (libre > 0) {
 		t_particion* ultimaParticion = malloc(sizeof(t_particion));
-		ultimaParticion->id='0';
-		ultimaParticion->inicio=tamanioSegmento-libre;
-		ultimaParticion->tamanio=libre;
-		ultimaParticion->libre=true;
-		char* lugar_del_segmento = segmento + (tamanioSegmento-libre);
+		ultimaParticion->id = '0';
+		ultimaParticion->inicio = tamanioSegmento - libre;
+		ultimaParticion->tamanio = libre;
+		ultimaParticion->libre = true;
+		char* lugar_del_segmento = segmento + (tamanioSegmento - libre);
 		ultimaParticion->dato = lugar_del_segmento;
 		list_add(listaPantalla, ultimaParticion);
 	}
@@ -103,7 +104,8 @@ t_list* particiones(t_memoria segmento) {
 int crear_particion_nueva(t_memoria segmento, char id, int tamanio,
 		char* contenido, bool vacio) {
 
-	t_fragmento* nuevo = fragmento_create(id, tamanio, last_pos_segmento, vacio);
+	t_fragmento* nuevo = fragmento_create(id, tamanio, last_pos_segmento,
+			vacio);
 	char* lugar_del_segmento = segmento + last_pos_segmento;
 	nuevo->particion->dato = lugar_del_segmento;
 	memcpy(nuevo->particion->dato, contenido, tamanio);
@@ -114,7 +116,8 @@ int crear_particion_nueva(t_memoria segmento, char id, int tamanio,
 	return 1; //Todo joya
 }
 
-void crear_particion_vacia_en_posicion(t_memoria segmento, char id, int tamanio, bool vacio, int posicion) {
+void crear_particion_vacia_en_posicion(t_memoria segmento, char id, int tamanio,
+		bool vacio, int posicion) {
 
 	t_fragmento* nuevo = fragmento_create(id, tamanio, posicion, vacio);
 	char* lugar_del_segmento = segmento + posicion;
@@ -153,18 +156,22 @@ t_fragmento* buscar_elemento(char id) {
 
 int guardar_datos(t_fragmento* guardar_aca, t_memoria segmento, char id,
 		char* contenido) {
-	t_fragmento* elem = fragmento_create(id, strlen(contenido), guardar_aca->particion->inicio, false);
-	elem->particion->dato= segmento + guardar_aca->particion->inicio;
+	t_fragmento* elem = fragmento_create(id, strlen(contenido),
+			guardar_aca->particion->inicio, false);
+	elem->particion->dato = segmento + guardar_aca->particion->inicio;
 	memcpy(elem->particion->dato, contenido, strlen(contenido));
 	elem->index = guardar_aca->index;
-	int viejoTamanio = guardar_aca->particion->tamanio-elem->particion->tamanio;
-	int nuevoInicio = guardar_aca->particion->inicio +strlen(contenido);
+	int viejoTamanio = guardar_aca->particion->tamanio
+			- elem->particion->tamanio;
+	int nuevoInicio = guardar_aca->particion->inicio + strlen(contenido);
 	char idParticionVacia = tolower(guardar_aca->particion->id);
 	actual_index_particiones = guardar_aca->index;
-	list_replace_and_destroy_element(listaParticiones, guardar_aca->index, elem,(void*) fragmento_destroy);
-	last_pos_segmento = guardar_aca->particion->inicio +strlen(contenido);
-	if(viejoTamanio !=0){
-		crear_particion_vacia_en_posicion(segmento, idParticionVacia, viejoTamanio, true, nuevoInicio);
+	list_replace_and_destroy_element(listaParticiones, guardar_aca->index, elem,
+			(void*) fragmento_destroy);
+	last_pos_segmento = guardar_aca->particion->inicio + strlen(contenido);
+	if (viejoTamanio != 0) {
+		crear_particion_vacia_en_posicion(segmento, idParticionVacia,
+				viejoTamanio, true, nuevoInicio);
 	}
 	return 1;
 }
@@ -187,12 +194,11 @@ void fragmento_destroy(t_fragmento* self) {
 	free(self);
 }
 
-t_fragmento* buscar_elemento_existente(int inicio){
+t_fragmento* buscar_elemento_existente(int inicio) {
 	bool _existe(t_fragmento* elem) {
 		return (elem->particion->inicio == inicio);
 	}
-		t_fragmento* existe = list_find(listaParticiones, (void*)_existe);
-		return existe;
+	t_fragmento* existe = list_find(listaParticiones, (void*) _existe);
+	return existe;
 }
-
 

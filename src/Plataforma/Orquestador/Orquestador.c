@@ -11,24 +11,22 @@
 #include <pthread.h>
 #include <commons/string.h>
 #include "Orquestador.h"
-#include "../Plataforma.h"
-#include "../Planificador/Planificador.h"
 
 #define PUERTO_ORQUESTADOR 5000
 
 void* orquestador(void* plat) {
-	t_orquestador* self = orquestador_create(PUERTO_ORQUESTADOR,
-			(t_plataforma*) plat);
+	t_plataforma* plataforma = (t_plataforma*) plat;
+	t_orquestador* self = orquestador_create(PUERTO_ORQUESTADOR, plataforma);
 
 	t_socket_client* acceptClosure(t_socket_server* server) {
 		t_socket_client* client = sockets_accept(server);
 		t_socket_buffer* buffer = sockets_recv(client);
 		if (buffer == NULL ) {
 			sockets_destroyClient(client);
-			pthread_mutex_lock(&self->plataforma->logger_mutex);
-			log_warning(self->plataforma->logger,
+			pthread_mutex_lock(&plataforma->logger_mutex);
+			log_warning(plataforma->logger,
 					"Orquestador: Error al recibir datos en el accept");
-			pthread_mutex_unlock(&self->plataforma->logger_mutex);
+			pthread_mutex_unlock(&plataforma->logger_mutex);
 			return NULL ;
 		}
 
@@ -39,22 +37,22 @@ void* orquestador(void* plat) {
 
 		switch (tipo_mensaje) {
 		case M_HANDSHAKE_PERSONAJE:
-			responder_handshake(client, self->plataforma->logger,
-					&self->plataforma->logger_mutex, "Orquestador");
+			responder_handshake(client, plataforma->logger,
+					&plataforma->logger_mutex, "Orquestador");
 			break;
 		case M_HANDSHAKE_NIVEL:
-			responder_handshake(client, self->plataforma->logger,
-					&self->plataforma->logger_mutex, "Orquestador");
-			if (!procesar_handshake_nivel(self, client)) {
+			responder_handshake(client, plataforma->logger,
+					&plataforma->logger_mutex, "Orquestador");
+			if (!procesar_handshake_nivel(self, client, plataforma)) {
 				return NULL ; //TODO usar send_error_message!!
 			}
 			break;
 		default:
-			pthread_mutex_lock(&self->plataforma->logger_mutex);
-			log_warning(self->plataforma->logger,
+			pthread_mutex_lock(&plataforma->logger_mutex);
+			log_warning(plataforma->logger,
 					"Orquestador: Error al recibir el handshake, tipo de mensaje no valido %d",
 					tipo_mensaje);
-			pthread_mutex_unlock(&self->plataforma->logger_mutex);
+			pthread_mutex_unlock(&plataforma->logger_mutex);
 			return NULL ; //TODO usar send_error_message!!
 		}
 
@@ -70,31 +68,30 @@ void* orquestador(void* plat) {
 
 		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
 		mostrar_mensaje(mensaje, client);
-		process_request(mensaje, client, self->plataforma);
+		process_request(mensaje, client, plataforma);
 
 		mensaje_destroy(mensaje);
 		sockets_bufferDestroy(buffer);
 		return true;
 	}
 
-	sockets_create_little_server(NULL, self->puerto, self->plataforma->logger,
-			&self->plataforma->logger_mutex, "Orquestador", self->servers,
+	sockets_create_little_server(plataforma->ip, self->puerto, plataforma->logger,
+			&plataforma->logger_mutex, "Orquestador", self->servers,
 			self->clients, &acceptClosure, &recvClosure);
 
 	while (true) {
-		pthread_mutex_lock(&self->plataforma->logger_mutex);
-		log_debug(self->plataforma->logger, "Orquestador: Entro al select");
-		pthread_mutex_unlock(&self->plataforma->logger_mutex);
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_debug(plataforma->logger, "Orquestador: Entro al select");
+		pthread_mutex_unlock(&plataforma->logger_mutex);
 		sockets_select(self->servers, self->clients, 0, &acceptClosure,
 				&recvClosure);
 	}
 
 	orquestador_destroy(self);
 
-	pthread_mutex_lock(&self->plataforma->logger_mutex);
-	log_info(self->plataforma->logger,
-			"Orquestador: Server cerrado correctamente");
-	pthread_mutex_unlock(&self->plataforma->logger_mutex);
+	pthread_mutex_lock(&plataforma->logger_mutex);
+	log_info(plataforma->logger, "Orquestador: Server cerrado correctamente");
+	pthread_mutex_unlock(&plataforma->logger_mutex);
 
 	return (void*) EXIT_SUCCESS;
 
@@ -103,15 +100,14 @@ void* orquestador(void* plat) {
 t_orquestador* orquestador_create(int puerto, t_plataforma* plataforma) {
 	t_orquestador* new = malloc(sizeof(t_orquestador));
 	new->puerto = puerto;
-	new->plataforma = plataforma;
+	new->planificadores_count = 0;
 	new->clients = list_create();
 	new->servers = list_create();
+	plataforma->orquestador = new;
 	return new;
 }
 
 void orquestador_destroy(t_orquestador* self) {
-	//NO la destruimos porque es compartida!
-	free(self->plataforma);
 	list_destroy_and_destroy_elements(self->clients,
 			(void *) sockets_destroyClient);
 	list_destroy_and_destroy_elements(self->servers,
@@ -136,12 +132,8 @@ void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client,
 		t_plataforma* plataforma) {
 	char* nivel_pedido = string_duplicate((char*) request->payload);
 
-	bool mismo_nombre(plataforma_t_nivel* elem) {
-		return string_equals_ignore_case(elem->nombre, nivel_pedido);
-	}
-
-	plataforma_t_nivel* el_nivel = list_find(plataforma->niveles,
-			(void*) mismo_nombre);
+	plataforma_t_nivel* el_nivel = plataforma_get_nivel(plataforma,
+			nivel_pedido);
 
 	if (el_nivel == NULL ) {
 		pthread_mutex_lock(&plataforma->logger_mutex);
@@ -162,7 +154,7 @@ void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client,
 	t_connection_info* nivel_connection = connection_create(nivel_str);
 
 	t_stream* response_data = get_info_nivel_response_create_serialized(
-			nivel_connection, el_nivel->planificador);
+			nivel_connection, el_nivel->planificador->connection_info);
 
 	mensaje_setdata(response, response_data->data, response_data->length);
 	mensaje_send(response, client);
@@ -183,7 +175,8 @@ void orquestador_send_error_message(char* error_description,
 	mensaje_destroy(response);
 }
 
-bool procesar_handshake_nivel(t_orquestador* self, t_socket_client* socket_nivel) {
+bool procesar_handshake_nivel(t_orquestador* self,
+		t_socket_client* socket_nivel, t_plataforma* plataforma) {
 
 	t_mensaje* mensaje = mensaje_create(M_GET_NOMBRE_NIVEL_REQUEST);
 	mensaje_send(mensaje, socket_nivel);
@@ -193,10 +186,10 @@ bool procesar_handshake_nivel(t_orquestador* self, t_socket_client* socket_nivel
 
 	if (buffer == NULL ) {
 		sockets_destroyClient(socket_nivel);
-		pthread_mutex_lock(&self->plataforma->logger_mutex);
-		log_warning(self->plataforma->logger,
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_warning(plataforma->logger,
 				"Orquestador: Error al recibir el nombre del nivel");
-		pthread_mutex_unlock(&self->plataforma->logger_mutex);
+		pthread_mutex_unlock(&plataforma->logger_mutex);
 		return false;
 	}
 
@@ -206,27 +199,31 @@ bool procesar_handshake_nivel(t_orquestador* self, t_socket_client* socket_nivel
 	if (mensaje->type != M_GET_NOMBRE_NIVEL_RESPONSE) {
 		sockets_destroyClient(socket_nivel);
 		mensaje_destroy(mensaje);
-		pthread_mutex_lock(&self->plataforma->logger_mutex);
-		log_error(self->plataforma->logger,
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_error(plataforma->logger,
 				"Orquestador: Tipo de respuesta inválido");
-		pthread_mutex_unlock(&self->plataforma->logger_mutex);
+		pthread_mutex_unlock(&plataforma->logger_mutex);
 		return false;
 	}
 
-	if (plataforma_create_nivel(self->plataforma, mensaje->payload, socket_nivel,
-			"127.0.0.1:9000") != 0) { //TODO To-do mal aca! cambiar la ip por la ip real.
+	char* planificador_connection_info = string_from_format("%s:%d",
+			plataforma->ip, 9000 + self->planificadores_count);
 
+	if (plataforma_create_nivel(plataforma, mensaje->payload, socket_nivel,
+			planificador_connection_info) != 0) {
+		self->planificadores_count++;
 		mensaje_destroy(mensaje);
 		sockets_destroyClient(socket_nivel);
 
-		pthread_mutex_lock(&self->plataforma->logger_mutex);
-		log_error(self->plataforma->logger,
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_error(plataforma->logger,
 				"Orquestador: No se pudo crear el planificador para el nivel %s",
 				mensaje->payload);
-		pthread_mutex_unlock(&self->plataforma->logger_mutex);
+		pthread_mutex_unlock(&plataforma->logger_mutex);
 
 		return false;
 	}
+	free(planificador_connection_info);
 
 	mensaje_destroy(mensaje);
 	return true;

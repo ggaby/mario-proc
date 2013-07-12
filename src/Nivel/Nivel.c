@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include "Nivel.h"
+#include "../common/list.h"
 #include <commons/string.h>
 #include <commons/collections/list.h>
 #include "../common/common_structs.h"
