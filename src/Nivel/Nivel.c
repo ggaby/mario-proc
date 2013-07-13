@@ -9,8 +9,6 @@
 #include "../common/common_structs.h"
 #include "../common/list.h"
 
-//"common_structs.h"
-
 //Cambiar por el puerto del archivo de configuracion correspondiente
 #define PORT 5001
 
