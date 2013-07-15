@@ -445,7 +445,7 @@ void sockets_destroyServer(t_socket_server* server) {
  */bool sockets_create_little_server(char* ip, int puerto, t_log* logger,
 		pthread_mutex_t* log_mutex, char* log_name, t_list *servers,
 		t_list* clients, t_socket_client *(*onAcceptClosure)(t_socket_server*),
-		int (*onRecvClosure)(t_socket_client*)) {
+		int (*onRecvClosure)(t_socket_client*), void (*onSelectClosure)(void)) {
 
 	t_socket_server* server = sockets_createServer(ip, puerto);
 
@@ -477,6 +477,10 @@ void sockets_destroyServer(t_socket_server* server) {
 	list_add(servers, server);
 
 	while (true) {
+		if (onSelectClosure != NULL ) {
+			onSelectClosure();
+		}
+
 		if (log_mutex != NULL ) {
 			pthread_mutex_lock(log_mutex);
 		}
@@ -511,21 +515,15 @@ t_socket_client* sockets_conectar_a_servidor(char* mi_ip, int mi_puerto,
 	log_info(logger, "Conectando con %s...", server_name);
 	log_debug(logger, "Enviando handshake");
 
-	t_mensaje* mensaje = mensaje_create(handshake_type);
-	mensaje_setdata(mensaje, string_duplicate(handshake_msg),
-			strlen(handshake_msg) + 1);
-	mensaje_send(mensaje, socket_client);
-	mensaje_destroy(mensaje);
+	mensaje_create_and_send(handshake_type, string_duplicate(handshake_msg),
+			strlen(handshake_msg) + 1, socket_client);
 
-	t_socket_buffer* buffer = sockets_recv(socket_client);
+	t_mensaje* rta_handshake = mensaje_recibir(socket_client);
 
-	if (buffer == NULL ) {
+	if (rta_handshake == NULL ) {
 		log_error(logger, "Error al recibir la respuesta del handshake");
 		return NULL ;
 	}
-
-	t_mensaje* rta_handshake = mensaje_deserializer(buffer, 0);
-	sockets_bufferDestroy(buffer);
 
 	if (rta_handshake->length != (strlen(handshake_success) + 1)
 			|| (!string_equals_ignore_case((char*) rta_handshake->payload,

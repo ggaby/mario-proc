@@ -109,7 +109,7 @@ void sockets_destroyServer(t_socket_server* server);
 bool sockets_create_little_server(char* ip, int puerto, t_log* logger,
 		pthread_mutex_t* log_mutex, char* log_name, t_list *servers,
 		t_list* clients, t_socket_client *(*onAcceptClosure)(t_socket_server*),
-		int (*onRecvClosure)(t_socket_client*));
+		int (*onRecvClosure)(t_socket_client*), void (*onSelectClosure) (void));
 
 t_socket_client* sockets_conectar_a_servidor(char* mi_ip, int mi_puerto,
 		char* server_ip, int server_puerto, t_log* logger, int handshake_type,

@@ -38,6 +38,27 @@ void mensaje_destroy(t_mensaje* mensaje) {
 	free(mensaje);
 }
 
+t_mensaje* mensaje_recibir(t_socket_client* client) {
+	t_socket_buffer* buffer = sockets_recv(client);
+
+	if (buffer == NULL ) {
+		return NULL ;
+	}
+
+	t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
+	sockets_bufferDestroy(buffer);
+
+	return mensaje;
+}
+
+void mensaje_create_and_send(uint8_t type, void* data, uint16_t length,
+		t_socket_client* client) {
+	t_mensaje* mensaje = mensaje_create(type);
+	mensaje_setdata(mensaje, data, length);
+	mensaje_send(mensaje, client);
+	mensaje_destroy(mensaje);
+}
+
 t_stream* get_info_nivel_response_create_serialized(t_connection_info* nivel,
 		t_connection_info* planificador) {
 

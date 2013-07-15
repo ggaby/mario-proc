@@ -18,6 +18,8 @@ nivel_t_personaje* nivel_create_personaje(nivel_t_nivel* self,
 void cargar_recursos_config(t_config* config, nivel_t_nivel* new);
 void nivel_create_grafica_recurso(nivel_t_nivel* self, t_recurso* recurso);
 t_recurso* nivel_create_recurso(char* config_string);
+void nivel_destroy_personaje(nivel_t_personaje* personaje);
+void nivel_destroy_recurso(t_recurso* recurso);
 
 int main(int argc, char *argv[]) {
 
@@ -37,16 +39,14 @@ int main(int argc, char *argv[]) {
 
 	t_socket_client* acceptClosure(t_socket_server* server) {
 		t_socket_client* client = sockets_accept(server);
-		t_socket_buffer* buffer = sockets_recv(client);
 
-		if (buffer == NULL ) {
+		t_mensaje* mensaje = mensaje_recibir(client);
+
+		if (mensaje == NULL ) {
 			sockets_destroyClient(client);
 			log_warning(self->logger, "Error al recibir datos en el accept");
 			return NULL ;
 		}
-
-		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
-		sockets_bufferDestroy(buffer);
 
 		if (mensaje->type != M_HANDSHAKE_PERSONAJE
 				|| strcmp(mensaje->payload, PERSONAJE_HANDSHAKE) != 0) {
@@ -65,14 +65,14 @@ int main(int argc, char *argv[]) {
 
 	//closure que maneja los mensajes recibidos
 	int recvClosure(t_socket_client* client) {
-		t_socket_buffer* buffer = sockets_recv(client);
 
-		if (buffer == NULL ) {
+		t_mensaje* mensaje = mensaje_recibir(client);
+
+		if (mensaje == NULL ) {
+			log_warning(self->logger, "Nivel %s: Mensaje recibido NULL.",
+					self->nombre);
 			return false;
 		}
-
-		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
-		sockets_bufferDestroy(buffer);
 
 		//TODO hacer un case, por cada tipo de mensaje que manden los personajes y el orquestador_info
 
@@ -94,16 +94,13 @@ int main(int argc, char *argv[]) {
 		return true;
 	}
 
+	void onSelectClosure() {
+		mapa_dibujar(self->mapa);
+	}
+
 	sockets_create_little_server(NULL, self->puerto, self->logger, NULL,
 			self->nombre, self->servers, self->clients, &acceptClosure,
-			&recvClosure);
-
-	while (true) {
-		log_debug(self->logger, "Entro al select");
-		mapa_dibujar(self->mapa);
-		sockets_select(self->servers, self->clients, 0, &acceptClosure,
-				&recvClosure);
-	}
+			&recvClosure, &onSelectClosure);
 
 	log_info(self->logger, "%s: cerrado correctamente", self->nombre);
 
@@ -162,6 +159,8 @@ nivel_t_nivel* nivel_create(char* config_path) {
 	new->socket_orquestador = NULL;
 	new->clients = list_create();
 	new->servers = list_create();
+	new->personajes = list_create();
+	new->recursos = list_create();
 
 	log_info(new->logger, "Nivel  %s creado correctamente", new->nombre);
 	return new;
@@ -171,8 +170,6 @@ void nivel_destroy(nivel_t_nivel* self) {
 	free(self->nombre);
 	connection_destroy(self->orquestador_info);
 	log_destroy(self->logger);
-
-	//TODO Free de los recursos
 
 	if (self->socket_orquestador != NULL ) {
 		bool is_socket_orquestador(t_socket_client* elem) {
@@ -185,6 +182,11 @@ void nivel_destroy(nivel_t_nivel* self) {
 
 	mapa_destroy(self->mapa);
 
+	list_destroy_and_destroy_elements(self->personajes,
+			(void*) nivel_destroy_personaje);
+	list_destroy_and_destroy_elements(self->recursos,
+			(void*) nivel_destroy_recurso);
+
 	list_destroy_and_destroy_elements(self->clients,
 			(void*) sockets_destroyClient);
 	list_destroy_and_destroy_elements(self->servers,
@@ -193,12 +195,19 @@ void nivel_destroy(nivel_t_nivel* self) {
 	free(self);
 }
 
+void nivel_destroy_personaje(nivel_t_personaje* personaje) {
+	sockets_destroyClient(personaje->socket);
+	free(personaje);
+}
+
+void nivel_destroy_recurso(t_recurso* recurso) {
+	free(recurso->nombre);
+	free(recurso);
+}
+
 void nivel_get_nombre(nivel_t_nivel* self, t_socket_client* client) {
-	t_mensaje* mensaje = mensaje_create(M_GET_NOMBRE_NIVEL_RESPONSE);
-	mensaje_setdata(mensaje, string_duplicate(self->nombre),
-			strlen(self->nombre) + 1);
-	mensaje_send(mensaje, client);
-	mensaje_destroy(mensaje);
+	mensaje_create_and_send(M_GET_NOMBRE_NIVEL_RESPONSE,
+			string_duplicate(self->nombre), strlen(self->nombre) + 1, client);
 }
 
 bool verificar_argumentos(int argc, char* argv[]) {

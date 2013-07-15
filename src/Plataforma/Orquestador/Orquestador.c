@@ -20,8 +20,10 @@ void* orquestador(void* plat) {
 
 	t_socket_client* acceptClosure(t_socket_server* server) {
 		t_socket_client* client = sockets_accept(server);
-		t_socket_buffer* buffer = sockets_recv(client);
-		if (buffer == NULL ) {
+
+		t_mensaje* mensaje = mensaje_recibir(client);
+
+		if (mensaje == NULL ) {
 			sockets_destroyClient(client);
 			pthread_mutex_lock(&plataforma->logger_mutex);
 			log_warning(plataforma->logger,
@@ -30,9 +32,8 @@ void* orquestador(void* plat) {
 			return NULL ;
 		}
 
-		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
 		int tipo_mensaje = mensaje->type;
-		sockets_bufferDestroy(buffer);
+
 		mensaje_destroy(mensaje);
 
 		switch (tipo_mensaje) {
@@ -60,32 +61,27 @@ void* orquestador(void* plat) {
 	}
 
 	int recvClosure(t_socket_client* client) {
-		t_socket_buffer* buffer = sockets_recv(client);
 
-		if (buffer == NULL ) {
+		t_mensaje* mensaje = mensaje_recibir(client);
+
+		if (mensaje == NULL ) {
+			pthread_mutex_lock(&plataforma->logger_mutex);
+			log_warning(plataforma->logger,
+					"Orquestador: Mensaje recibido NULL.");
+			pthread_mutex_unlock(&plataforma->logger_mutex);
 			return false;
 		}
 
-		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
 		mostrar_mensaje(mensaje, client);
 		process_request(mensaje, client, plataforma);
 
 		mensaje_destroy(mensaje);
-		sockets_bufferDestroy(buffer);
 		return true;
 	}
 
-	sockets_create_little_server(plataforma->ip, self->puerto, plataforma->logger,
-			&plataforma->logger_mutex, "Orquestador", self->servers,
-			self->clients, &acceptClosure, &recvClosure);
-
-	while (true) {
-		pthread_mutex_lock(&plataforma->logger_mutex);
-		log_debug(plataforma->logger, "Orquestador: Entro al select");
-		pthread_mutex_unlock(&plataforma->logger_mutex);
-		sockets_select(self->servers, self->clients, 0, &acceptClosure,
-				&recvClosure);
-	}
+	sockets_create_little_server(plataforma->ip, self->puerto,
+			plataforma->logger, &plataforma->logger_mutex, "Orquestador",
+			self->servers, self->clients, &acceptClosure, &recvClosure, NULL );
 
 	orquestador_destroy(self);
 
@@ -168,11 +164,10 @@ void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client,
 
 void orquestador_send_error_message(char* error_description,
 		t_socket_client* client) {
-	t_mensaje* response = mensaje_create(M_ERROR);
-	mensaje_setdata(response, strdup(error_description),
-			strlen(error_description) + 1);
-	mensaje_send(response, client);
-	mensaje_destroy(response);
+
+	mensaje_create_and_send(M_ERROR, strdup(error_description),
+			strlen(error_description) + 1, client);
+
 }
 
 bool procesar_handshake_nivel(t_orquestador* self,
@@ -182,9 +177,9 @@ bool procesar_handshake_nivel(t_orquestador* self,
 	mensaje_send(mensaje, socket_nivel);
 	mensaje_destroy(mensaje);
 
-	t_socket_buffer* buffer = sockets_recv(socket_nivel);
+	mensaje = mensaje_recibir(socket_nivel);
 
-	if (buffer == NULL ) {
+	if (mensaje == NULL ) {
 		sockets_destroyClient(socket_nivel);
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_warning(plataforma->logger,
@@ -192,9 +187,6 @@ bool procesar_handshake_nivel(t_orquestador* self,
 		pthread_mutex_unlock(&plataforma->logger_mutex);
 		return false;
 	}
-
-	mensaje = mensaje_deserializer(buffer, 0);
-	sockets_bufferDestroy(buffer);
 
 	if (mensaje->type != M_GET_NOMBRE_NIVEL_RESPONSE) {
 		sockets_destroyClient(socket_nivel);

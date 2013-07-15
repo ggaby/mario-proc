@@ -54,18 +54,21 @@ typedef struct t_mensaje {
 typedef struct t_connection_info {
 	char* ip;
 	uint32_t puerto;
-} __attribute__ ((packed)) t_connection_info;
+}__attribute__ ((packed)) t_connection_info;
 
 typedef struct t_get_info_nivel_response {
 	t_connection_info* nivel;
 	t_connection_info* planificador;
-} __attribute__ ((packed)) t_get_info_nivel_response;
+}__attribute__ ((packed)) t_get_info_nivel_response;
 
 void stream_destroy(t_stream* self);
-t_mensaje *mensaje_create(uint8_t type);
+t_mensaje* mensaje_create(uint8_t type);
 void mensaje_setdata(t_mensaje* mensaje, void* data, uint16_t length);
 void* mensaje_getdata(t_mensaje* mensaje);
 void mensaje_destroy(t_mensaje* mensaje);
+t_mensaje* mensaje_recibir(t_socket_client* client);
+void mensaje_create_and_send(uint8_t type, void* data, uint16_t length,
+		t_socket_client* client);
 void* mensaje_getdata_destroy(t_mensaje* mensaje);
 t_socket_buffer* mensaje_serializer(t_mensaje* mensaje);
 t_mensaje* mensaje_deserializer(t_socket_buffer* buffer, uint32_t dataStart);

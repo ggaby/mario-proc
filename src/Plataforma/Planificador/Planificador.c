@@ -16,9 +16,10 @@ void* planificador(void* args) {
 
 	t_socket_client* acceptClosure(t_socket_server* server) {
 		t_socket_client* client = sockets_accept(server);
-		t_socket_buffer* buffer = sockets_recv(client);
 
-		if (buffer == NULL ) {
+		t_mensaje* mensaje = mensaje_recibir(client);
+
+		if (mensaje == NULL ) {
 			sockets_destroyClient(client);
 			pthread_mutex_lock(&plataforma->logger_mutex);
 			log_warning(plataforma->logger,
@@ -26,9 +27,6 @@ void* planificador(void* args) {
 			pthread_mutex_unlock(&plataforma->logger_mutex);
 			return NULL ;
 		}
-
-		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
-		sockets_bufferDestroy(buffer);
 
 		//Solo se conectan personajes, asi que solo valido handshake de personajes
 
@@ -56,14 +54,15 @@ void* planificador(void* args) {
 	}
 
 	int recvClosure(t_socket_client* client) {
-		t_socket_buffer* buffer = sockets_recv(client);
+		t_mensaje* mensaje = mensaje_recibir(client);
 
-		if (buffer == NULL ) {
+		if (mensaje == NULL ) {
+			pthread_mutex_lock(&plataforma->logger_mutex);
+			log_warning(plataforma->logger, "%s: Mensaje recibido NULL.",
+					self->log_name);
+			pthread_mutex_unlock(&plataforma->logger_mutex);
 			return false;
 		}
-
-		t_mensaje* mensaje = mensaje_deserializer(buffer, 0);
-		sockets_bufferDestroy(buffer);
 
 		//TODO iNotify para actualizar el quantum.
 		if (!planificador_process_request(self, mensaje, plataforma)) {
@@ -75,9 +74,10 @@ void* planificador(void* args) {
 		return true;
 	}
 
-	sockets_create_little_server(self->connection_info->ip, self->connection_info->puerto,
-			plataforma->logger, &plataforma->logger_mutex, self->log_name,
-			self->servers, self->clients, &acceptClosure, &recvClosure);
+	sockets_create_little_server(self->connection_info->ip,
+			self->connection_info->puerto, plataforma->logger,
+			&plataforma->logger_mutex, self->log_name, self->servers,
+			self->clients, &acceptClosure, &recvClosure, NULL );
 
 	pthread_mutex_lock(&plataforma->logger_mutex);
 	log_info(plataforma->logger, "%s: Server cerrado correctamente",

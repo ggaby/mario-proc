@@ -82,21 +82,16 @@ bool personaje_get_info_nivel(t_personaje* self) {
 
 	log_info(self->logger, "Solicitando datos de nivel");
 	//TODO: Obvio que acá no siempre en el nivel[0]
-	t_mensaje* request = mensaje_create(M_GET_INFO_NIVEL_REQUEST);
-	mensaje_setdata(request, strdup(self->plan_de_niveles[0]),
-			strlen(self->plan_de_niveles[0]) + 1);
-	mensaje_send(request, self->socket_orquestador);
-	mensaje_destroy(request);
+	mensaje_create_and_send(M_GET_INFO_NIVEL_REQUEST,
+			strdup(self->plan_de_niveles[0]),
+			strlen(self->plan_de_niveles[0]) + 1, self->socket_orquestador);
 
-	t_socket_buffer* buffer = sockets_recv(self->socket_orquestador);
+	t_mensaje* response = mensaje_recibir(self->socket_orquestador);
 
-	if (buffer == NULL ) {
+	if (response == NULL ) {
 		log_error(self->logger, "Error al recibir la información del nivel");
 		return NULL ;
 	}
-
-	t_mensaje* response = mensaje_deserializer(buffer, 0);
-	sockets_bufferDestroy(buffer);
 
 	if (response->type == M_ERROR) {
 		log_error(self->logger, (char*) response->payload);
