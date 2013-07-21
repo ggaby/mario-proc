@@ -118,12 +118,18 @@ t_planificador* planificador_create(t_plataforma* plataforma,
 }
 
 void planificador_personaje_destroy(planificador_t_personaje* self) {
-	sockets_destroyClient(self->socket);
+	if (self->socket != NULL ) {
+		sockets_destroyClient(self->socket);
+	}
 	free(self->tiempo_llegada);
 	free(self);
 }
 
 void planificador_destroy(t_planificador* self) {
+	list_destroy_and_destroy_elements(self->clients,
+			(void*) sockets_destroyClient);
+	list_destroy_and_destroy_elements(self->servers,
+			(void*) sockets_destroyServer);
 	queue_destroy_and_destroy_elements(self->personajes_ready,
 			(void*) planificador_personaje_destroy);
 	queue_destroy_and_destroy_elements(self->personajes_blocked,
@@ -131,10 +137,6 @@ void planificador_destroy(t_planificador* self) {
 	if (self->personaje_ejecutando != NULL ) {
 		planificador_personaje_destroy(self->personaje_ejecutando);
 	}
-	list_destroy_and_destroy_elements(self->clients,
-			(void*) sockets_destroyClient);
-	list_destroy_and_destroy_elements(self->servers,
-			(void*) sockets_destroyServer);
 	connection_destroy(self->connection_info);
 	free(self->log_name);
 	free(self);

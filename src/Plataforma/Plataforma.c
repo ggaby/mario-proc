@@ -11,6 +11,7 @@
 #include "Orquestador/Orquestador.h"
 #include "Planificador/Planificador.h"
 #include <commons/config.h>
+#include "../common/list.h"
 
 int main(int argc, char* argv[]) {
 
@@ -30,7 +31,7 @@ t_plataforma* plataforma_create(char* config_path) {
 	t_plataforma* new = malloc(sizeof(t_plataforma));
 	new->logger = log_create("plataforma.log", "Plataforma", true,
 			log_level_from_string("TRACE"));
-	pthread_mutex_init(&new->logger_mutex, NULL);
+	pthread_mutex_init(&new->logger_mutex, NULL );
 	new->niveles = list_create();
 	new->config_path = string_duplicate(config_path);
 
@@ -62,15 +63,29 @@ int plataforma_create_nivel(t_plataforma* self, char* nombre_nivel,
 	new->nombre = string_duplicate(nombre_nivel);
 	new->socket_nivel = socket_nivel;
 
+	char* nivel_str = string_from_format("%s:%d",
+			sockets_getIp(socket_nivel->socket),
+			sockets_getPort(socket_nivel->socket));
+	new->connection_info = connection_create(nivel_str);
+	free(nivel_str);
+
 	thread_planificador_args* args = malloc(sizeof(thread_planificador_args));
 	args->plataforma = self;
 	args->nombre_nivel = string_duplicate(nombre_nivel);
 	args->planificador_connection_info = connection_create(
 			planificador_connection_info);
 
+	list_add(self->niveles, new);
+
 	if (pthread_create(&new->thread_planificador, NULL, planificador,
 			(void*) args) != 0) {
-		plataforma_nivel_destroy(new);
+
+		bool mismo_nombre(plataforma_t_nivel* elem) {
+			return string_equals_ignore_case(elem->nombre, nombre_nivel);
+		}
+
+		my_list_remove_and_destroy_by_condition(self->niveles,
+				(void*) mismo_nombre, (void*) plataforma_nivel_destroy);
 		pthread_mutex_lock(&self->logger_mutex);
 		log_error(self->logger,
 				"Plataforma: No se pudo crear el thread planificador del nivel %s",
@@ -84,14 +99,13 @@ int plataforma_create_nivel(t_plataforma* self, char* nombre_nivel,
 			nombre_nivel);
 	pthread_mutex_unlock(&self->logger_mutex);
 
-	list_add(self->niveles, new);
-
 	return 0;
 }
 
 void plataforma_nivel_destroy(plataforma_t_nivel* nivel) {
 	free(nivel->nombre);
-	sockets_destroyClient(nivel->socket_nivel);
+	//Este lo saco porque del socket se va a encargar el select
+	//sockets_destroyClient(nivel->socket_nivel);
 	connection_destroy(nivel->connection_info);
 	free(nivel);
 }

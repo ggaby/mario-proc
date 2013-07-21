@@ -11,6 +11,8 @@
 #include <pthread.h>
 #include <commons/string.h>
 #include "Orquestador.h"
+#include "../../common/list.h"
+#include "../Planificador/Planificador.h"
 
 #define PUERTO_ORQUESTADOR 5000
 
@@ -45,7 +47,9 @@ void* orquestador(void* plat) {
 			responder_handshake(client, plataforma->logger,
 					&plataforma->logger_mutex, "Orquestador");
 			if (!procesar_handshake_nivel(self, client, plataforma)) {
-				return NULL ; //TODO usar send_error_message!!
+				orquestador_send_error_message("Error al procesar el handshake",
+						client);
+				return NULL ;
 			}
 			break;
 		default:
@@ -54,7 +58,8 @@ void* orquestador(void* plat) {
 					"Orquestador: Error al recibir el handshake, tipo de mensaje no valido %d",
 					tipo_mensaje);
 			pthread_mutex_unlock(&plataforma->logger_mutex);
-			return NULL ; //TODO usar send_error_message!!
+			orquestador_send_error_message("Request desconocido", client);
+			return NULL ;
 		}
 
 		return client;
@@ -66,9 +71,10 @@ void* orquestador(void* plat) {
 
 		if (mensaje == NULL ) {
 			pthread_mutex_lock(&plataforma->logger_mutex);
-			log_warning(plataforma->logger,
+			log_debug(plataforma->logger,
 					"Orquestador: Mensaje recibido NULL.");
 			pthread_mutex_unlock(&plataforma->logger_mutex);
+			verificar_nivel_desconectado(plataforma, client);
 			return false;
 		}
 
@@ -144,20 +150,13 @@ void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client,
 
 	t_mensaje* response = mensaje_create(M_GET_INFO_NIVEL_RESPONSE);
 
-	char* nivel_str = string_from_format("%s:%d",
-			sockets_getIp(el_nivel->socket_nivel->socket),
-			sockets_getPort(el_nivel->socket_nivel->socket));
-	t_connection_info* nivel_connection = connection_create(nivel_str);
-
 	t_stream* response_data = get_info_nivel_response_create_serialized(
-			nivel_connection, el_nivel->planificador->connection_info);
+			el_nivel->connection_info, el_nivel->planificador->connection_info);
 
 	mensaje_setdata(response, response_data->data, response_data->length);
 	mensaje_send(response, client);
 	mensaje_destroy(response);
 
-	free(nivel_str);
-	connection_destroy(nivel_connection);
 	free(nivel_pedido);
 	free(response_data);
 }
@@ -203,7 +202,6 @@ bool procesar_handshake_nivel(t_orquestador* self,
 
 	if (plataforma_create_nivel(plataforma, mensaje->payload, socket_nivel,
 			planificador_connection_info) != 0) {
-		self->planificadores_count++;
 		mensaje_destroy(mensaje);
 		sockets_destroyClient(socket_nivel);
 
@@ -215,8 +213,10 @@ bool procesar_handshake_nivel(t_orquestador* self,
 
 		return false;
 	}
-	free(planificador_connection_info);
 
+	self->planificadores_count++;
+
+	free(planificador_connection_info);
 	mensaje_destroy(mensaje);
 	return true;
 }
@@ -226,4 +226,36 @@ void mostrar_mensaje(t_mensaje* mensaje, t_socket_client* client) {
 	printf("TYPE: %d\n", mensaje->type);
 	printf("LENGHT: %d\n", mensaje->length);
 	printf("PAYLOAD: %s\n", (char*) mensaje->payload);
+}
+
+void verificar_nivel_desconectado(t_plataforma* plataforma,
+		t_socket_client* client) {
+
+	bool es_el_nivel(plataforma_t_nivel* elem) {
+		return sockets_equalsClients(client, elem->socket_nivel);
+	}
+
+	plataforma_t_nivel* nivel_desconectado = list_find(plataforma->niveles,
+			(void*) es_el_nivel);
+
+	if (nivel_desconectado != NULL ) {
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_info(plataforma->logger,
+				"Orquestador: El nivel %s se ha desconectado",
+				nivel_desconectado->nombre);
+		pthread_mutex_unlock(&plataforma->logger_mutex);
+
+		planificador_destroy(nivel_desconectado->planificador);
+
+		pthread_cancel(nivel_desconectado->thread_planificador);
+
+		my_list_remove_and_destroy_by_condition(plataforma->niveles,
+				(void*) es_el_nivel, (void*) plataforma_nivel_destroy);
+
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_debug(plataforma->logger,
+				"Orquestador: Se terminó de limpiar las estructuras");
+		pthread_mutex_unlock(&plataforma->logger_mutex);
+	}
+
 }

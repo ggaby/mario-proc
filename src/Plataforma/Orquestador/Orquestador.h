@@ -25,5 +25,7 @@ void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client,
 		t_plataforma* plataforma);
 void orquestador_send_error_message(char* error_description,
 		t_socket_client* client);
+void verificar_nivel_desconectado(t_plataforma* plataforma,
+		t_socket_client* client);
 
 #endif /* ORQUESTADOR_H_ */
