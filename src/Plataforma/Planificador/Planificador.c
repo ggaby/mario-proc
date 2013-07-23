@@ -4,6 +4,7 @@
 #include <commons/string.h>
 #include <commons/config.h>
 #include <commons/temporal.h>
+#include "../../common/list.h"
 
 void* planificador(void* args) {
 	thread_planificador_args* argumentos = (thread_planificador_args*) args;
@@ -61,6 +62,8 @@ void* planificador(void* args) {
 			log_warning(plataforma->logger, "%s: Mensaje recibido NULL.",
 					self->log_name);
 			pthread_mutex_unlock(&plataforma->logger_mutex);
+
+			verificar_personaje_desconectado(self, plataforma, client);
 			return false;
 		}
 
@@ -118,9 +121,6 @@ t_planificador* planificador_create(t_plataforma* plataforma,
 }
 
 void planificador_personaje_destroy(planificador_t_personaje* self) {
-	if (self->socket != NULL ) {
-		sockets_destroyClient(self->socket);
-	}
 	free(self->tiempo_llegada);
 	free(self);
 }
@@ -202,4 +202,59 @@ void planificador_mover_personaje(t_planificador* self) {
 void planificador_cambiar_de_personaje(t_planificador* self) {
 	queue_push(self->personajes_ready, self->personaje_ejecutando);
 	self->personaje_ejecutando = queue_pop(self->personajes_ready);
+}
+
+void verificar_personaje_desconectado(t_planificador* self,
+		t_plataforma* plataforma, t_socket_client* client) {
+
+	bool es_el_personaje(planificador_t_personaje* elem) {
+		return sockets_equalsClients(client, elem->socket);
+	}
+
+	//TODO: En esta función, en cada caso habría que ver si hay que devolver recursos o algo así
+
+	//Alto hack: queue->elements se puede manejar como una lista y recorrerla ;)
+	planificador_t_personaje* personaje_desconectado = list_find(
+			self->personajes_ready->elements, (void*) es_el_personaje);
+	if (personaje_desconectado != NULL ) {
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_warning(plataforma->logger,
+				"%s: El personaje en el socket %d se ha desconectado estando en ready",
+				self->log_name, personaje_desconectado->socket->socket->desc);
+		pthread_mutex_unlock(&plataforma->logger_mutex);
+		my_list_remove_and_destroy_by_condition(
+				self->personajes_ready->elements, (void*) es_el_personaje,
+				(void*) planificador_personaje_destroy);
+	} else {
+		personaje_desconectado = list_find(self->personajes_blocked->elements,
+				(void*) es_el_personaje);
+		if (personaje_desconectado != NULL ) {
+			pthread_mutex_lock(&plataforma->logger_mutex);
+			log_warning(plataforma->logger,
+					"%s: El personaje en el socket %d se ha desconectado estando en blocked",
+					self->log_name,
+					personaje_desconectado->socket->socket->desc);
+			pthread_mutex_unlock(&plataforma->logger_mutex);
+			my_list_remove_and_destroy_by_condition(
+					self->personajes_blocked->elements, (void*) es_el_personaje,
+					(void*) planificador_personaje_destroy);
+		} else {
+			if (es_el_personaje(self->personaje_ejecutando)) {
+				pthread_mutex_lock(&plataforma->logger_mutex);
+				log_warning(plataforma->logger,
+						"%s: El personaje en el socket %d se ha desconectado estando ejecutando",
+						self->log_name,
+						personaje_desconectado->socket->socket->desc);
+				pthread_mutex_unlock(&plataforma->logger_mutex);
+				//TODO: Acá habría que ver de resetear el quantum y devolver recursos
+				//planificador_cambiar_de_personaje(self), tal vez?
+				planificador_personaje_destroy(self->personaje_ejecutando);
+			}
+		}
+	}
+
+	pthread_mutex_lock(&plataforma->logger_mutex);
+	log_debug(plataforma->logger, "%s: Se terminó de limpiar las estructuras",
+			self->log_name);
+	pthread_mutex_unlock(&plataforma->logger_mutex);
 }

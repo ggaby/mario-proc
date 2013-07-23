@@ -22,5 +22,7 @@ bool planificador_process_request(t_planificador* self, t_mensaje* mensaje,
 void planificador_finalizar_turno(t_planificador* self);
 void planificador_mover_personaje(t_planificador* self);
 void planificador_cambiar_de_personaje(t_planificador* self);
+void verificar_personaje_desconectado(t_planificador* self,
+		t_plataforma* plataforma, t_socket_client* client);
 
 #endif /* PLANIFICADOR_H_ */

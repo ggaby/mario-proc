@@ -62,6 +62,11 @@ int main(int argc, char* argv[]) {
 			self->nivel_info->planificador->ip,
 			self->nivel_info->planificador->puerto);
 
+	//Hacer esto es una mierda, pero la otra forma es peor ;)
+	sockets_destroyClient(self->socket_orquestador);
+	self->socket_orquestador = NULL;
+	//
+
 	if (!personaje_conectar_a_nivel(self)) {
 		personaje_destroy(self);
 		return EXIT_FAILURE;
