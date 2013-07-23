@@ -47,5 +47,7 @@ nivel_t_nivel* nivel_create(char* config_path);
 void nivel_destroy(nivel_t_nivel* self);
 bool nivel_conectar_a_orquestador(nivel_t_nivel* self);
 void nivel_get_nombre(nivel_t_nivel* self, t_socket_client* client);
+void verificar_personaje_desconectado(nivel_t_nivel* self,
+		t_socket_client* client);
 
 #endif /* NIVEL_H_ */

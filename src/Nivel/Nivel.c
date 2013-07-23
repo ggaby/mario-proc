@@ -71,6 +71,8 @@ int main(int argc, char *argv[]) {
 		if (mensaje == NULL ) {
 			log_warning(self->logger, "Nivel %s: Mensaje recibido NULL.",
 					self->nombre);
+
+			verificar_personaje_desconectado(self, client);
 			return false;
 		}
 
@@ -171,14 +173,15 @@ void nivel_destroy(nivel_t_nivel* self) {
 	connection_destroy(self->orquestador_info);
 	log_destroy(self->logger);
 
-	if (self->socket_orquestador != NULL ) {
-		bool is_socket_orquestador(t_socket_client* elem) {
-			return sockets_equalsClients(self->socket_orquestador, elem);
-		}
-
-		my_list_remove_and_destroy_by_condition(self->clients,
-				(void*) is_socket_orquestador, (void*) sockets_destroyClient);
-	}
+	//FIXME: Para qué vendría a ser esto?
+//	if (self->socket_orquestador != NULL ) {
+//		bool is_socket_orquestador(t_socket_client* elem) {
+//			return sockets_equalsClients(self->socket_orquestador, elem);
+//		}
+//
+//		my_list_remove_and_destroy_by_condition(self->clients,
+//				(void*) is_socket_orquestador, (void*) sockets_destroyClient);
+//	}
 
 	mapa_destroy(self->mapa);
 
@@ -196,7 +199,7 @@ void nivel_destroy(nivel_t_nivel* self) {
 }
 
 void nivel_destroy_personaje(nivel_t_personaje* personaje) {
-	sockets_destroyClient(personaje->socket);
+	//sockets_destroyClient(personaje->socket);
 	free(personaje);
 }
 
@@ -329,4 +332,25 @@ t_recurso* nivel_create_recurso(char* config_string) {
 void nivel_create_grafica_recurso(nivel_t_nivel* self, t_recurso* recurso) {
 	mapa_create_caja_recurso(self->mapa, recurso->simbolo, recurso->posX,
 			recurso->posY, recurso->cantidad);
+}
+
+void verificar_personaje_desconectado(nivel_t_nivel* self,
+		t_socket_client* client) {
+
+	bool es_el_personaje(nivel_t_personaje* elem) {
+		return sockets_equalsClients(client, elem->socket);
+	}
+
+	nivel_t_personaje* personaje_desconectado = list_find(self->personajes,
+			(void*) es_el_personaje);
+
+	//TODO LIBERAR RECURSOS
+	if (personaje_desconectado != NULL ) {
+		log_warning(self->logger, "El personaje %c se ha desconectado", personaje_desconectado->id);
+		mapa_borrar_item(self->mapa, personaje_desconectado->id);
+		my_list_remove_and_destroy_by_condition(self->personajes,
+				(void*) es_el_personaje,
+				(void*) nivel_destroy_personaje);
+	}
+
 }
