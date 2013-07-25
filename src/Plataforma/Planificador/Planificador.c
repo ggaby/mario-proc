@@ -46,10 +46,9 @@ void* planificador(void* args) {
 		responder_handshake(client, plataforma->logger,
 				&plataforma->logger_mutex, self->log_name);
 
-//		//TODO ver como inicia el juego!
-//		if (!planificador_esta_procesando(self)) { //FIXME MMHHH... esto? o ver si la cola de ready esta vacia??
-//			planificador_mover_personaje(self, personaje);
-//		}
+		if (!planificador_esta_procesando(self)) {
+			planificador_mover_personaje(self);
+		}
 
 		return client;
 	}
@@ -166,8 +165,9 @@ bool planificador_process_request(t_planificador* self, t_mensaje* mensaje,
 		planificador_finalizar_turno(self);
 		break;
 	default:
-		//TODO como llega la plataforma aca? lo recibo de parametro o planificador conoce al mismo log que tiene la plataforma?
-//			log_warning(plataforma->logger, "Planificador nivel..: error en mensaje recibido");
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_warning(plataforma->logger, "%s: error en mensaje recibido tipo %d desconocido.", self->log_name, mensaje->type);
+		pthread_mutex_unlock(&plataforma->logger_mutex);
 		return false;
 	}
 
@@ -191,16 +191,25 @@ void planificador_mover_personaje(t_planificador* self) {
 	sleep(self->tiempo_sleep);
 	self->quantum_restante--;
 
+	if(self->personaje_ejecutando == NULL){
+		planificador_cambiar_de_personaje(self);
+	}
+
 	t_mensaje* mensaje = mensaje_create(M_NOTIFICACION_MOVIMIENTO);
 
 	mensaje_send(mensaje, self->personaje_ejecutando->socket);
+
+	mensaje_destroy(mensaje);
 }
 
 /*
  * Pone el personaje ejecutando al final de la cola de ready y saca el siguiente
  */
 void planificador_cambiar_de_personaje(t_planificador* self) {
-	queue_push(self->personajes_ready, self->personaje_ejecutando);
+	if(self->personaje_ejecutando != NULL){
+		queue_push(self->personajes_ready, self->personaje_ejecutando);
+	}
+
 	self->personaje_ejecutando = queue_pop(self->personajes_ready);
 }
 

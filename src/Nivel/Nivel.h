@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include "../common/sockets.h"
 #include "../common/mensaje.h"
+#include "../common/posicion.h"
 #include <commons/config.h>
 #include <commons/collections/list.h>
 #include <commons/log.h>
@@ -31,15 +32,13 @@ typedef struct {
 	char* nombre;
 	char simbolo;
 	int cantidad;
-	int posX;
-	int posY;
+	t_posicion* posicion;
 } t_recurso;
 
 typedef struct {
 	t_socket_client* socket;
 	char id;
-	int posX;
-	int posY;
+	t_posicion* posicion;
 } nivel_t_personaje;
 
 
@@ -47,6 +46,7 @@ nivel_t_nivel* nivel_create(char* config_path);
 void nivel_destroy(nivel_t_nivel* self);
 bool nivel_conectar_a_orquestador(nivel_t_nivel* self);
 void nivel_get_nombre(nivel_t_nivel* self, t_socket_client* client);
+void nivel_get_posicion_recurso(nivel_t_nivel* self, char* id_recurso, t_socket_client* client);
 void verificar_personaje_desconectado(nivel_t_nivel* self,
 		t_socket_client* client);
 
