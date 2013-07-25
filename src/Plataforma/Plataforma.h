@@ -37,6 +37,8 @@ typedef struct {
 	t_list* clients;
 	t_connection_info* connection_info;
 	char* log_name;
+	//Otro alto hack: Lo meto en un socket para meterlo al select ;)
+	t_socket_client* inotify_fd_wrapper;
 } t_planificador;
 
 typedef struct {

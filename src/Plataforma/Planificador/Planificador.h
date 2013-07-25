@@ -24,5 +24,8 @@ void planificador_mover_personaje(t_planificador* self);
 void planificador_cambiar_de_personaje(t_planificador* self);
 void verificar_personaje_desconectado(t_planificador* self,
 		t_plataforma* plataforma, t_socket_client* client);
+t_socket_client* inotify_socket_wrapper_create(char* file_to_watch);
+void planificador_reload_config(t_planificador* self, t_socket_client* client,
+		t_plataforma* plataforma);
 
 #endif /* PLANIFICADOR_H_ */

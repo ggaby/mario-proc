@@ -5,6 +5,10 @@
 #include <commons/config.h>
 #include <commons/temporal.h>
 #include "../../common/list.h"
+#include <sys/inotify.h>
+
+#define INOTIFY_EVENT_SIZE  ( sizeof (struct inotify_event) + 50 )
+#define INOTIFY_BUF_LEN     ( 1024 * INOTIFY_EVENT_SIZE )
 
 void* planificador(void* args) {
 	thread_planificador_args* argumentos = (thread_planificador_args*) args;
@@ -55,26 +59,36 @@ void* planificador(void* args) {
 	}
 
 	int recvClosure(t_socket_client* client) {
-		t_mensaje* mensaje = mensaje_recibir(client);
 
-		if (mensaje == NULL ) {
-			pthread_mutex_lock(&plataforma->logger_mutex);
-			log_warning(plataforma->logger, "%s: Mensaje recibido NULL.",
-					self->log_name);
-			pthread_mutex_unlock(&plataforma->logger_mutex);
-
-			verificar_personaje_desconectado(self, plataforma, client);
-			return false;
+		bool es_el_fd_de_inotify(t_socket_client* client) {
+			return sockets_equalsClients(client, self->inotify_fd_wrapper);
 		}
 
-		//TODO iNotify para actualizar el quantum.
-		if (!planificador_process_request(self, mensaje, plataforma)) {
+		if (es_el_fd_de_inotify(client)) {
+			planificador_reload_config(self, client, plataforma);
+			return true;
+		} else {
+
+			t_mensaje* mensaje = mensaje_recibir(client);
+
+			if (mensaje == NULL ) {
+				pthread_mutex_lock(&plataforma->logger_mutex);
+				log_warning(plataforma->logger, "%s: Mensaje recibido NULL.",
+						self->log_name);
+				pthread_mutex_unlock(&plataforma->logger_mutex);
+
+				verificar_personaje_desconectado(self, plataforma, client);
+				return false;
+			}
+
+			if (!planificador_process_request(self, mensaje, plataforma)) {
+				mensaje_destroy(mensaje);
+				return false;
+			}
+
 			mensaje_destroy(mensaje);
-			return false;
+			return true;
 		}
-
-		mensaje_destroy(mensaje);
-		return true;
 	}
 
 	sockets_create_little_server(self->connection_info->ip,
@@ -117,6 +131,10 @@ t_planificador* planificador_create(t_plataforma* plataforma,
 	plataforma_t_nivel* mi_nivel = plataforma_get_nivel(plataforma,
 			nombre_nivel);
 	mi_nivel->planificador = new;
+
+	new->inotify_fd_wrapper = inotify_socket_wrapper_create(
+			plataforma->config_path);
+	list_add(new->clients, new->inotify_fd_wrapper);
 	return new;
 }
 
@@ -160,14 +178,15 @@ void planificador_resetear_quantum(t_planificador* self) {
 bool planificador_process_request(t_planificador* self, t_mensaje* mensaje,
 		t_plataforma* plataforma) {
 
-	//TODO procesar mensajes que pueden llegar!
 	switch (mensaje->type) {
 	case M_TURNO_FINALIZADO:
 		planificador_finalizar_turno(self);
 		break;
 	default:
-		//TODO como llega la plataforma aca? lo recibo de parametro o planificador conoce al mismo log que tiene la plataforma?
-//			log_warning(plataforma->logger, "Planificador nivel..: error en mensaje recibido");
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_warning(plataforma->logger, "%s: Request desconocido",
+				self->log_name);
+		pthread_mutex_unlock(&plataforma->logger_mutex);
 		return false;
 	}
 
@@ -256,5 +275,49 @@ void verificar_personaje_desconectado(t_planificador* self,
 	pthread_mutex_lock(&plataforma->logger_mutex);
 	log_debug(plataforma->logger, "%s: Se terminó de limpiar las estructuras",
 			self->log_name);
+	pthread_mutex_unlock(&plataforma->logger_mutex);
+}
+
+t_socket_client* inotify_socket_wrapper_create(char* file_to_watch) {
+	t_socket_client* client = malloc(sizeof(t_socket_client));
+	client->socket = malloc(sizeof(t_socket));
+	client->socket->desc = inotify_init();
+	if (client->socket->desc < 0) {
+		free(client->socket);
+		free(client);
+		return NULL ;
+	}
+	inotify_add_watch(client->socket->desc, file_to_watch,
+			IN_MODIFY | IN_CREATE);
+	sockets_setState(client, SOCKETSTATE_CONNECTED);
+	return client;
+}
+
+void planificador_reload_config(t_planificador* self, t_socket_client* client,
+		t_plataforma* plataforma) {
+	pthread_mutex_lock(&plataforma->logger_mutex);
+	log_info(plataforma->logger,
+			"%s: Se ha detectado un cambio en el archivo de configuración. Recargando...",
+			self->log_name);
+	pthread_mutex_unlock(&plataforma->logger_mutex);
+	char buffer[INOTIFY_BUF_LEN];
+	int length = read(client->socket->desc, buffer, INOTIFY_BUF_LEN);
+	if (length < 0) {
+		return;
+	}
+	struct inotify_event *event = (struct inotify_event *) &buffer;
+	if (event->mask & (IN_CREATE | IN_MODIFY)) {
+		t_config* config = config_create(plataforma->config_path);
+		self->quantum_total = config_get_int_value(config,
+				PLANIFICADOR_CONFIG_QUANTUM);
+		self->tiempo_sleep = config_get_int_value(config,
+				PLANIFICADOR_CONFIG_TIEMPO_ESPERA);
+		config_destroy(config);
+	}
+
+	pthread_mutex_lock(&plataforma->logger_mutex);
+	log_info(plataforma->logger,
+			"%s: Nuevo Quantum: %d, Nuevo tiempo de sleep: %d", self->log_name,
+			self->quantum_total, self->tiempo_sleep);
 	pthread_mutex_unlock(&plataforma->logger_mutex);
 }
