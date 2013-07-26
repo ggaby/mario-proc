@@ -183,7 +183,9 @@ bool planificador_process_request(t_planificador* self, t_mensaje* mensaje,
 		break;
 	default:
 		pthread_mutex_lock(&plataforma->logger_mutex);
-		log_warning(plataforma->logger, "%s: error en mensaje recibido tipo %d desconocido.", self->log_name, mensaje->type);
+		log_warning(plataforma->logger,
+				"%s: error en mensaje recibido tipo %d desconocido.",
+				self->log_name, mensaje->type);
 		pthread_mutex_unlock(&plataforma->logger_mutex);
 		return false;
 	}
@@ -208,7 +210,7 @@ void planificador_mover_personaje(t_planificador* self) {
 	sleep(self->tiempo_sleep);
 	self->quantum_restante--;
 
-	if(self->personaje_ejecutando == NULL){
+	if (self->personaje_ejecutando == NULL ) {
 		planificador_cambiar_de_personaje(self);
 	}
 
@@ -223,7 +225,7 @@ void planificador_mover_personaje(t_planificador* self) {
  * Pone el personaje ejecutando al final de la cola de ready y saca el siguiente
  */
 void planificador_cambiar_de_personaje(t_planificador* self) {
-	if(self->personaje_ejecutando != NULL){
+	if (self->personaje_ejecutando != NULL ) {
 		queue_push(self->personajes_ready, self->personaje_ejecutando);
 	}
 
@@ -270,11 +272,13 @@ void verificar_personaje_desconectado(t_planificador* self,
 				log_warning(plataforma->logger,
 						"%s: El personaje en el socket %d se ha desconectado estando ejecutando",
 						self->log_name,
-						personaje_desconectado->socket->socket->desc);
+						self->personaje_ejecutando->socket->socket->desc);
 				pthread_mutex_unlock(&plataforma->logger_mutex);
 				//TODO: Acá habría que ver de resetear el quantum y devolver recursos
 				//planificador_cambiar_de_personaje(self), tal vez?
 				planificador_personaje_destroy(self->personaje_ejecutando);
+				//TODO: Cambiar esto por lo de mover el personaje:
+				self->personaje_ejecutando = NULL;
 			}
 		}
 	}
@@ -296,6 +300,7 @@ t_socket_client* inotify_socket_wrapper_create(char* file_to_watch) {
 	}
 	inotify_add_watch(client->socket->desc, file_to_watch,
 			IN_MODIFY | IN_CREATE);
+	client->socket->my_addr = malloc(sizeof(struct sockaddr_in));
 	sockets_setState(client, SOCKETSTATE_CONNECTED);
 	return client;
 }
