@@ -509,6 +509,7 @@ t_socket_client* sockets_conectar_a_servidor(char* mi_ip, int mi_puerto,
 
 	if (sockets_connect(socket_client, server_ip, server_puerto) == 0) {
 		log_error(logger, "Error al conectar con %s", server_name);
+		sockets_destroyClient(socket_client);
 		return NULL ;
 	}
 
@@ -522,6 +523,7 @@ t_socket_client* sockets_conectar_a_servidor(char* mi_ip, int mi_puerto,
 
 	if (rta_handshake == NULL ) {
 		log_error(logger, "Error al recibir la respuesta del handshake");
+		sockets_destroyClient(socket_client);
 		return NULL ;
 	}
 
@@ -530,6 +532,7 @@ t_socket_client* sockets_conectar_a_servidor(char* mi_ip, int mi_puerto,
 					handshake_success))) {
 		log_error(logger, "Error en la respuesta del handshake");
 		mensaje_destroy(rta_handshake);
+		sockets_destroyClient(socket_client);
 		return NULL ;
 	}
 

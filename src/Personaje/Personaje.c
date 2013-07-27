@@ -243,24 +243,34 @@ bool personaje_conectar_a_orquestador(t_personaje* self) {
 t_personaje_nivel* personaje_nivel_create(char* nombre_nivel) {
 	t_personaje_nivel* new = malloc(sizeof(t_personaje_nivel));
 	new->nombre = string_duplicate(nombre_nivel);
+	new->nivel = NULL;
+	new->planificador = NULL;
+	new->socket_nivel = NULL;
+	new->socket_planificador = NULL;
 	return new;
 }
 
-void personaje_nivel_destroy(t_personaje_nivel* self) {
+void personaje_nivel_destroy(t_personaje_nivel* nivel) {
 
-	free(self->nombre);
-	connection_destroy(self->nivel);
-	connection_destroy(self->planificador);
+	free(nivel->nombre);
 
-	if (self->socket_nivel != NULL ) {
-		sockets_destroyClient(self->socket_nivel);
+	if (nivel->nivel != NULL ) {
+		connection_destroy(nivel->nivel);
 	}
 
-	if (self->socket_planificador != NULL ) {
-		sockets_destroyClient(self->socket_planificador);
+	if (nivel->planificador != NULL ) {
+		connection_destroy(nivel->planificador);
 	}
 
-	free(self);
+	if (nivel->socket_nivel != NULL ) {
+		sockets_destroyClient(nivel->socket_nivel);
+	}
+
+	if (nivel->socket_planificador != NULL ) {
+		sockets_destroyClient(nivel->socket_planificador);
+	}
+
+	free(nivel);
 }
 
 bool verificar_argumentos(int argc, char* argv[]) {
