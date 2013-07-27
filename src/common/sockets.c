@@ -38,7 +38,6 @@ void sockets_sbufferDestroy(t_socket_sbuffer *tbuffer) {
 void *sockets_makeaddr(char* ip, int port);
 t_socket *sockets_create(char* ip, int port);
 int sockets_bind(t_socket* sckt, char* ip, int port);
-void sockets_destroy(t_socket* sckt);
 
 void *sockets_makeaddr(char* ip, int port) {
 	struct sockaddr_in *addr = malloc(sizeof(struct sockaddr_in));
@@ -150,6 +149,7 @@ t_socket_client* sockets_createClient(char *ip, int port) {
 	if (client->socket == NULL ) {
 		return NULL ;
 	}
+	client->serv_socket = NULL;
 	sockets_setState(client, SOCKETSTATE_DISCONNECTED);
 	return client;
 }
@@ -509,6 +509,9 @@ t_socket_client* sockets_conectar_a_servidor(char* mi_ip, int mi_puerto,
 
 	if (sockets_connect(socket_client, server_ip, server_puerto) == 0) {
 		log_error(logger, "Error al conectar con %s", server_name);
+		if (socket_client->serv_socket != NULL ) {
+			sockets_destroy(socket_client->serv_socket);
+		}
 		sockets_destroyClient(socket_client);
 		return NULL ;
 	}

@@ -73,6 +73,9 @@ int main(int argc, char* argv[]) {
 				self->nivel_actual->planificador->puerto);
 
 		//Hacer esto es una mierda, pero la otra forma es peor ;)
+		if (self->socket_orquestador->serv_socket != NULL ) {
+			sockets_destroy(self->socket_orquestador->serv_socket);
+		}
 		sockets_destroyClient(self->socket_orquestador);
 		self->socket_orquestador = NULL;
 		//
@@ -87,7 +90,10 @@ int main(int argc, char* argv[]) {
 			return EXIT_FAILURE; //TODO manejar caso de error
 		}
 
-		personaje_jugar_nivel(self);
+		if (!personaje_jugar_nivel(self)) {
+			personaje_destroy(self);
+			return EXIT_FAILURE;
+		}
 
 		//TODO Seguir aca el flujo de logica del nivel.
 
@@ -203,10 +209,16 @@ void personaje_destroy(t_personaje* self) {
 	connection_destroy(self->orquestador_info);
 	log_destroy(self->logger);
 	if (self->socket_orquestador != NULL ) {
+		if (self->socket_orquestador->serv_socket != NULL ) {
+			sockets_destroy(self->socket_orquestador->serv_socket);
+		}
 		sockets_destroyClient(self->socket_orquestador);
 	}
 	if (self->nivel_actual != NULL ) {
 		personaje_nivel_destroy(self->nivel_actual);
+	}
+	if (self->posicion != NULL ) {
+		posicion_destroy(self->posicion);
 	}
 
 	free(self);
@@ -263,10 +275,16 @@ void personaje_nivel_destroy(t_personaje_nivel* nivel) {
 	}
 
 	if (nivel->socket_nivel != NULL ) {
+		if (nivel->socket_nivel->serv_socket != NULL ) {
+			sockets_destroy(nivel->socket_nivel->serv_socket);
+		}
 		sockets_destroyClient(nivel->socket_nivel);
 	}
 
 	if (nivel->socket_planificador != NULL ) {
+		if (nivel->socket_planificador->serv_socket != NULL ) {
+			sockets_destroy(nivel->socket_planificador->serv_socket);
+		}
 		sockets_destroyClient(nivel->socket_planificador);
 	}
 
@@ -294,8 +312,13 @@ bool personaje_conectar_a_nivel(t_personaje* self) {
 
 	t_mensaje* mensaje = mensaje_recibir(self->nivel_actual->socket_nivel);
 
+	if (mensaje == NULL ) {
+		log_error(self->logger, "Personaje %s: El nivel %s se ha desconectado.",
+				self->nombre, self->nivel_actual->nombre);
+		return false;
+	}
+
 	if (mensaje->type != M_GET_SYMBOL_PERSONAJE_REQUEST) {
-		sockets_destroyClient(self->nivel_actual->socket_nivel);
 		mensaje_destroy(mensaje);
 		return false;
 	}
@@ -327,7 +350,7 @@ bool personaje_conectar_a_planificador(t_personaje* self) {
 	return (self->nivel_actual->socket_planificador != NULL );
 }
 
-void personaje_jugar_nivel(t_personaje* self) {
+bool personaje_jugar_nivel(t_personaje* self) {
 	log_info(self->logger, "Personaje %s: comenzando nivel %s", self->nombre,
 			self->nivel_actual->nombre);
 
@@ -353,6 +376,14 @@ void personaje_jugar_nivel(t_personaje* self) {
 			t_mensaje* mensaje = mensaje_recibir(
 					self->nivel_actual->socket_nivel);
 
+			if (mensaje == NULL ) {
+				log_error(self->logger,
+						"Personaje %s: El nivel %s se ha desconectado.",
+						self->nombre, self->nivel_actual->nombre);
+				free(objetivo);
+				return false;
+			}
+
 			posicion_objetivo = posicion_duplicate(mensaje->payload);
 			mensaje_destroy(mensaje);
 
@@ -365,6 +396,16 @@ void personaje_jugar_nivel(t_personaje* self) {
 
 			t_mensaje* notificacion_movimiento = mensaje_recibir(
 					self->nivel_actual->socket_planificador);
+
+			if (notificacion_movimiento == NULL ) {
+				log_error(self->logger,
+						"Personaje %s: El planificador se ha desconectado.",
+						self->nombre);
+				posicion_destroy(posicion_objetivo);
+				free(objetivo);
+				return false;
+			}
+
 			int mensaje_type = notificacion_movimiento->type;
 			mensaje_destroy(notificacion_movimiento);
 
@@ -379,6 +420,15 @@ void personaje_jugar_nivel(t_personaje* self) {
 
 				t_mensaje* solicitud_mov_response = mensaje_recibir(
 						self->nivel_actual->socket_nivel);
+
+				if (solicitud_mov_response == NULL ) {
+					log_error(self->logger,
+							"Personaje %s: El nivel %s se ha desconectado.",
+							self->nombre, self->nivel_actual->nombre);
+					posicion_destroy(posicion_objetivo);
+					free(objetivo);
+					return false;
+				}
 
 				if (solicitud_mov_response->type == M_ERROR) {
 
@@ -423,4 +473,5 @@ void personaje_jugar_nivel(t_personaje* self) {
 	//TODO Avisar nivel del fin del nivel y desconectar
 	log_info(self->logger, "Personaje %s: finalice nivel %s", self->nombre,
 			self->nivel_actual->nombre);
+	return true;
 }

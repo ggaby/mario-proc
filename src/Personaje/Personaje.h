@@ -48,6 +48,6 @@ bool personaje_get_info_nivel(t_personaje* self);
 bool personaje_conectar_a_orquestador(t_personaje* self);
 bool personaje_conectar_a_nivel(t_personaje* self);
 bool personaje_conectar_a_planificador(t_personaje* self);
-void personaje_jugar_nivel(t_personaje* self);
+bool personaje_jugar_nivel(t_personaje* self);
 
 #endif /* PERSONAJE_H_ */
