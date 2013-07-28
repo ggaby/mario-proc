@@ -8,6 +8,7 @@
 #include <commons/collections/list.h>
 #include "../common/common_structs.h"
 #include "../common/list.h"
+#include "VerificadorDeadlock/verificador_deadlock.h"
 
 //Cambiar por el puerto del archivo de configuracion correspondiente
 #define PORT 5001
@@ -46,9 +47,8 @@ int main(int argc, char *argv[]) {
 
 		if (mensaje == NULL ) {
 			sockets_destroyClient(client);
-			log_warning(self->logger,
-					"Nivel %s: Error al recibir datos en el accept",
-					self->nombre);
+			nivel_loguear(log_warning, self,
+					"Error al recibir datos en el accept");
 			return NULL ;
 		}
 
@@ -56,14 +56,13 @@ int main(int argc, char *argv[]) {
 				|| strcmp(mensaje->payload, PERSONAJE_HANDSHAKE) != 0) {
 			mensaje_destroy(mensaje);
 			sockets_destroyClient(client);
-			log_warning(self->logger, "Nivel %s: Handshake recibido invalido.",
-					self->nombre);
+			nivel_loguear(log_warning, self, "Handshake recibido invalido.");
 			return NULL ;
 		}
 
 		mensaje_destroy(mensaje);
 
-		responder_handshake(client, self->logger, NULL,
+		responder_handshake(client, self->logger, &self->logger_mutex,
 				string_from_format("Nivel %s", self->nombre));
 
 		mensaje = mensaje_create(M_GET_SYMBOL_PERSONAJE_REQUEST);
@@ -75,9 +74,8 @@ int main(int argc, char *argv[]) {
 		if (mensaje->type != M_GET_SYMBOL_PERSONAJE_RESPONSE) {
 			mensaje_destroy(mensaje);
 			sockets_destroyClient(client);
-			log_warning(self->logger,
-					"Nivel %s: Error recibiendo data del personaje.",
-					self->nombre);
+			nivel_loguear(log_warning, self,
+					"Error recibiendo data del personaje.");
 			return NULL ;
 		}
 
@@ -95,9 +93,7 @@ int main(int argc, char *argv[]) {
 		t_mensaje* mensaje = mensaje_recibir(client);
 
 		if (mensaje == NULL ) {
-			log_warning(self->logger, "Nivel %s: Mensaje recibido NULL.",
-					self->nombre);
-
+			nivel_loguear(log_warning, self, "Mensaje recibido NULL.");
 			verificar_personaje_desconectado(self, client);
 			return false;
 		}
@@ -119,7 +115,7 @@ int main(int argc, char *argv[]) {
 			//TODO verificar si el personaje se encuentra en la posicion del recurso recibido y asignar una instancia.
 			break;
 		default:
-			log_warning(self->logger,
+			nivel_loguear(log_warning, self,
 					"Tipo del mensaje recibido no valido tipo: %d",
 					mensaje->type);
 			return false; //TODO WTF this FALSE!! hacer un send_error_message
@@ -133,12 +129,13 @@ int main(int argc, char *argv[]) {
 		mapa_dibujar(self->mapa);
 	}
 
-	sockets_create_little_server(NULL, self->puerto, self->logger, NULL,
+	nivel_create_verificador_deadlock(self);
+
+	sockets_create_little_server(NULL, self->puerto, self->logger, &self->logger_mutex,
 			self->nombre, self->servers, self->clients, &acceptClosure,
 			&recvClosure, &onSelectClosure);
 
-	log_info(self->logger, "%s: cerrado correctamente", self->nombre);
-
+	nivel_loguear(log_info, self, "cerrado correctamente");
 	nivel_destroy(self);
 
 	return EXIT_SUCCESS;
@@ -175,6 +172,8 @@ nivel_t_nivel* nivel_create(char* config_path) {
 	new->logger = log_create(log_file, "Nivel", false,
 			log_level_from_string(log_level));
 
+	pthread_mutex_init(&new->logger_mutex, NULL );
+
 	free(log_file);
 	free(log_level);
 
@@ -197,7 +196,7 @@ nivel_t_nivel* nivel_create(char* config_path) {
 
 	config_destroy(config);
 
-	log_info(new->logger, "Nivel  %s creado correctamente", new->nombre);
+	log_info(new->logger, "Nivel  %s: creado correctamente", new->nombre);
 	return new;
 }
 
@@ -205,6 +204,7 @@ void nivel_destroy(nivel_t_nivel* self) {
 	free(self->nombre);
 	connection_destroy(self->orquestador_info);
 	log_destroy(self->logger);
+	pthread_mutex_destroy(&self->logger_mutex);
 
 	//FIXME: Para qué vendría a ser esto?
 //	if (self->socket_orquestador != NULL ) {
@@ -233,11 +233,15 @@ void nivel_destroy(nivel_t_nivel* self) {
 
 void nivel_destroy_personaje(nivel_t_personaje* personaje) {
 	//sockets_destroyClient(personaje->socket);
+	posicion_destroy(personaje->posicion);
+	list_destroy_and_destroy_elements(personaje->recursos_asignados,
+			(void*) nivel_destroy_recurso);
 	free(personaje);
 }
 
 void nivel_destroy_recurso(t_recurso* recurso) {
 	free(recurso->nombre);
+	posicion_destroy(recurso->posicion);
 	free(recurso);
 }
 
@@ -246,11 +250,23 @@ void nivel_get_nombre(nivel_t_nivel* self, t_socket_client* client) {
 			string_duplicate(self->nombre), strlen(self->nombre) + 1, client);
 }
 
+void nivel_loguear(void log_fn(t_log*, const char*, ...), nivel_t_nivel* self,
+		const char* message, ...) {
+	pthread_mutex_lock(&self->logger_mutex);
+	va_list arguments;
+	va_start(arguments, message);
+	char* template = string_from_format("Nivel %s: %s", self->nombre, message);
+	log_fn(self->logger, string_from_vformat(template, arguments));
+	free(template);
+	va_end(arguments);
+	pthread_mutex_unlock(&self->logger_mutex);
+}
+
 void nivel_get_posicion_recurso(nivel_t_nivel* self, char* id_recurso,
 		t_socket_client* client) {
 
-	log_info(self->logger, "Nivel %s: solicitud posicion recurso %s recibida",
-			self->nombre, id_recurso);
+	nivel_loguear(log_info, self, "solicitud posicion recurso %s recibida",
+			id_recurso);
 
 	bool es_el_recurso(t_recurso* recurso) {
 		return id_recurso[0] == recurso->simbolo;
@@ -263,7 +279,7 @@ void nivel_get_posicion_recurso(nivel_t_nivel* self, char* id_recurso,
 				"el recurso %s no se encuentra en el nivel %s", id_recurso,
 				self->nombre);
 
-		log_warning(self->logger, mensaje_error);
+		nivel_loguear(log_warning, self, mensaje_error);
 
 		mensaje_create_and_send(M_ERROR, string_duplicate(mensaje_error),
 				strlen(mensaje_error), client);
@@ -272,8 +288,9 @@ void nivel_get_posicion_recurso(nivel_t_nivel* self, char* id_recurso,
 		return;
 	}
 
-	log_info(self->logger, "Nivel %s: enviando posicion recurso %s, posicion (%d,%d)",
-				self->nombre, id_recurso, recurso->posicion->x, recurso->posicion->y);
+	nivel_loguear(log_info, self,
+			"enviando posicion recurso %s, posicion (%d,%d)", id_recurso,
+			recurso->posicion->x, recurso->posicion->y);
 
 	mensaje_create_and_send(M_GET_POSICION_RECURSO_RESPONSE,
 			posicion_duplicate(recurso->posicion), sizeof(t_posicion), client);
@@ -290,6 +307,7 @@ bool verificar_argumentos(int argc, char* argv[]) {
 }
 
 bool nivel_conectar_a_orquestador(nivel_t_nivel* self) {
+	//TODO a esta altura no se encuentra creado el thread de verificador_deadlock es necesario hacer toodo el refactor para usar el semaforo de log? :S
 	self->socket_orquestador = sockets_conectar_a_servidor(NULL, self->puerto,
 			self->orquestador_info->ip, self->orquestador_info->puerto,
 			self->logger, M_HANDSHAKE_NIVEL, NIVEL_HANDSHAKE, HANDSHAKE_SUCCESS,
@@ -305,6 +323,7 @@ nivel_t_personaje* nivel_create_personaje(nivel_t_nivel* self,
 	personaje->id = id_personaje;
 	personaje->posicion = posicion_create(0, 0);
 	personaje->socket = socket;
+	personaje->recursos_asignados = list_create();
 
 	mapa_create_personaje(self->mapa, id_personaje);
 	return personaje;
@@ -417,11 +436,18 @@ void verificar_personaje_desconectado(nivel_t_nivel* self,
 
 //TODO LIBERAR RECURSOS
 	if (personaje_desconectado != NULL ) {
-		log_warning(self->logger, "El personaje %c se ha desconectado",
+		nivel_loguear(log_warning, self, "El personaje %c se ha desconectado",
 				personaje_desconectado->id);
 		mapa_borrar_item(self->mapa, personaje_desconectado->id);
 		my_list_remove_and_destroy_by_condition(self->personajes,
 				(void*) es_el_personaje, (void*) nivel_destroy_personaje);
 	}
 
+}
+
+void nivel_create_verificador_deadlock(nivel_t_nivel* self) {
+	pthread_t thread_verificador_deadlock;
+	pthread_create(&thread_verificador_deadlock, NULL, verificador_deadlock,
+			(void*) self);
+//	return thread_verificador_deadlock;?
 }

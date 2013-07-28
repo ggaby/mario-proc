@@ -2,6 +2,7 @@
 #define NIVEL_H_
 
 #include <stdbool.h>
+#include <pthread.h>
 #include "../common/sockets.h"
 #include "../common/mensaje.h"
 #include "../common/posicion.h"
@@ -17,9 +18,10 @@ typedef struct {
 	char* nombre;
 	t_list* recursos;  //TODO
 	t_list* personajes; //TODO
-	t_connection_info* orquestador_info; 
+	t_connection_info* orquestador_info;
 	int tiempoChequeoDeadlock;
 	bool recovery;
+	pthread_mutex_t logger_mutex;
 	t_log* logger;
 	int puerto;
 	t_socket_client* socket_orquestador;
@@ -39,15 +41,19 @@ typedef struct {
 	t_socket_client* socket;
 	char id;
 	t_posicion* posicion;
+	t_list* recursos_asignados;
 } nivel_t_personaje;
-
 
 nivel_t_nivel* nivel_create(char* config_path);
 void nivel_destroy(nivel_t_nivel* self);
 bool nivel_conectar_a_orquestador(nivel_t_nivel* self);
 void nivel_get_nombre(nivel_t_nivel* self, t_socket_client* client);
-void nivel_get_posicion_recurso(nivel_t_nivel* self, char* id_recurso, t_socket_client* client);
+void nivel_get_posicion_recurso(nivel_t_nivel* self, char* id_recurso,
+		t_socket_client* client);
 void verificar_personaje_desconectado(nivel_t_nivel* self,
 		t_socket_client* client);
+void nivel_loguear(void log_fn(t_log*, const char*, ...), nivel_t_nivel* self,
+		const char* message, ...);
+void nivel_create_verificador_deadlock(nivel_t_nivel* self);
 
 #endif /* NIVEL_H_ */
