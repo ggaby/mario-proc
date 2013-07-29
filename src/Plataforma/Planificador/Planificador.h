@@ -19,7 +19,7 @@ bool planificador_esta_procesando(t_planificador* self);
 void planificador_resetear_quantum(t_planificador* self);
 bool planificador_process_request(t_planificador* self, t_mensaje* mensaje,
 		t_plataforma* plataforma);
-void planificador_finalizar_turno(t_planificador* self);
+void planificador_finalizar_turno(t_planificador* self, t_mensaje* mensaje);
 void planificador_mover_personaje(t_planificador* self);
 void planificador_cambiar_de_personaje(t_planificador* self);
 void verificar_personaje_desconectado(t_planificador* self,
@@ -27,5 +27,10 @@ void verificar_personaje_desconectado(t_planificador* self,
 t_socket_client* inotify_socket_wrapper_create(char* file_to_watch);
 void planificador_reload_config(t_planificador* self, t_socket_client* client,
 		t_plataforma* plataforma);
+void bloquear_personaje(t_planificador* self, char* recurso);
+planificador_t_personaje* buscar_personaje_bloqueado(t_planificador* self,
+		t_socket_client* client);
+void remover_de_bloqueados(t_planificador* self,
+		planificador_t_personaje* personaje);
 
 #endif /* PLANIFICADOR_H_ */

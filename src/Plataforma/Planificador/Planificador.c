@@ -119,7 +119,7 @@ t_planificador* planificador_create(t_plataforma* plataforma,
 			PLANIFICADOR_CONFIG_TIEMPO_ESPERA);
 
 	new->personajes_ready = queue_create();
-	new->personajes_blocked = queue_create();
+	new->personajes_blocked = dictionary_create();
 	new->personaje_ejecutando = NULL;
 	new->servers = list_create();
 	new->clients = list_create();
@@ -137,11 +137,6 @@ t_planificador* planificador_create(t_plataforma* plataforma,
 	return new;
 }
 
-void planificador_personaje_destroy(planificador_t_personaje* self) {
-	free(self->tiempo_llegada);
-	free(self);
-}
-
 void planificador_destroy(t_planificador* self) {
 	list_destroy_and_destroy_elements(self->clients,
 			(void*) sockets_destroyClient);
@@ -149,13 +144,26 @@ void planificador_destroy(t_planificador* self) {
 			(void*) sockets_destroyServer);
 	queue_destroy_and_destroy_elements(self->personajes_ready,
 			(void*) planificador_personaje_destroy);
-	queue_destroy_and_destroy_elements(self->personajes_blocked,
-			(void*) planificador_personaje_destroy);
+
+	// IF YOU KNOW WHAT I MEAN ;)
+	void destruir_la_cola(char* key, t_queue* queue) {
+		queue_destroy_and_destroy_elements(queue,
+				(void*) planificador_personaje_destroy);
+	}
+
+	dictionary_iterator(self->personajes_blocked, (void*) destruir_la_cola);
+	dictionary_destroy(self->personajes_blocked);
+
 	if (self->personaje_ejecutando != NULL ) {
 		planificador_personaje_destroy(self->personaje_ejecutando);
 	}
 	connection_destroy(self->connection_info);
 	free(self->log_name);
+	free(self);
+}
+
+void planificador_personaje_destroy(planificador_t_personaje* self) {
+	free(self->tiempo_llegada);
 	free(self);
 }
 
@@ -179,7 +187,7 @@ bool planificador_process_request(t_planificador* self, t_mensaje* mensaje,
 
 	switch (mensaje->type) {
 	case M_TURNO_FINALIZADO:
-		planificador_finalizar_turno(self);
+		planificador_finalizar_turno(self, mensaje);
 		break;
 	default:
 		pthread_mutex_lock(&plataforma->logger_mutex);
@@ -193,14 +201,28 @@ bool planificador_process_request(t_planificador* self, t_mensaje* mensaje,
 	return true;
 }
 
-//TODO: Acá habría que ver si quedó bloqueado;
-void planificador_finalizar_turno(t_planificador* self) {
-	if (self->quantum_restante == 0) {
-		planificador_cambiar_de_personaje(self);
+void planificador_finalizar_turno(t_planificador* self, t_mensaje* mensaje) {
+	if (mensaje->length == 0) { //Terminó el turno OK
+		if (self->quantum_restante == 0) {
+			planificador_cambiar_de_personaje(self);
+			planificador_resetear_quantum(self);
+		}
+	} else { //Quedó bloqueado
+		bloquear_personaje(self, (char*) mensaje->payload);
 		planificador_resetear_quantum(self);
 	}
 
 	planificador_mover_personaje(self);
+}
+
+void bloquear_personaje(t_planificador* self, char* recurso) {
+	if (!dictionary_has_key(self->personajes_blocked, recurso)) {
+		dictionary_put(self->personajes_blocked, recurso, queue_create());
+	}
+	t_queue* cola_bloqueados = dictionary_get(self->personajes_blocked,
+			recurso);
+	queue_push(cola_bloqueados, self->personaje_ejecutando);
+	self->personajes_ready = queue_pop(self->personajes_ready);
 }
 
 /*
@@ -212,6 +234,10 @@ void planificador_mover_personaje(t_planificador* self) {
 
 	if (self->personaje_ejecutando == NULL ) {
 		planificador_cambiar_de_personaje(self);
+	}
+
+	if (self->personaje_ejecutando == NULL ) { //No hay más personajes (chanchada.com)
+		return;
 	}
 
 	t_mensaje* mensaje = mensaje_create(M_NOTIFICACION_MOVIMIENTO);
@@ -239,8 +265,6 @@ void verificar_personaje_desconectado(t_planificador* self,
 		return sockets_equalsClients(client, elem->socket);
 	}
 
-	//TODO: En esta función, en cada caso habría que ver si hay que devolver recursos o algo así
-
 	//Alto hack: queue->elements se puede manejar como una lista y recorrerla ;)
 	planificador_t_personaje* personaje_desconectado = list_find(
 			self->personajes_ready->elements, (void*) es_el_personaje);
@@ -254,8 +278,7 @@ void verificar_personaje_desconectado(t_planificador* self,
 				self->personajes_ready->elements, (void*) es_el_personaje,
 				(void*) planificador_personaje_destroy);
 	} else {
-		personaje_desconectado = list_find(self->personajes_blocked->elements,
-				(void*) es_el_personaje);
+		personaje_desconectado = buscar_personaje_bloqueado(self, client);
 		if (personaje_desconectado != NULL ) {
 			pthread_mutex_lock(&plataforma->logger_mutex);
 			log_warning(plataforma->logger,
@@ -263,9 +286,9 @@ void verificar_personaje_desconectado(t_planificador* self,
 					self->log_name,
 					personaje_desconectado->socket->socket->desc);
 			pthread_mutex_unlock(&plataforma->logger_mutex);
-			my_list_remove_and_destroy_by_condition(
-					self->personajes_blocked->elements, (void*) es_el_personaje,
-					(void*) planificador_personaje_destroy);
+
+			remover_de_bloqueados(self, personaje_desconectado);
+
 		} else {
 			if (es_el_personaje(self->personaje_ejecutando)) {
 				pthread_mutex_lock(&plataforma->logger_mutex);
@@ -274,11 +297,12 @@ void verificar_personaje_desconectado(t_planificador* self,
 						self->log_name,
 						self->personaje_ejecutando->socket->socket->desc);
 				pthread_mutex_unlock(&plataforma->logger_mutex);
-				//TODO: Acá habría que ver de resetear el quantum y devolver recursos
-				//planificador_cambiar_de_personaje(self), tal vez?
+				//TODO: Acá habría que ver de devolver recursos
 				planificador_personaje_destroy(self->personaje_ejecutando);
-				//TODO: Cambiar esto por lo de mover el personaje:
 				self->personaje_ejecutando = NULL;
+				planificador_cambiar_de_personaje(self);
+				planificador_resetear_quantum(self);
+				planificador_mover_personaje(self);
 			}
 		}
 	}
@@ -287,6 +311,69 @@ void verificar_personaje_desconectado(t_planificador* self,
 	log_debug(plataforma->logger, "%s: Se terminó de limpiar las estructuras",
 			self->log_name);
 	pthread_mutex_unlock(&plataforma->logger_mutex);
+}
+
+planificador_t_personaje* buscar_personaje_bloqueado(t_planificador* self,
+		t_socket_client* client) {
+	t_list* colas = list_create();
+
+	//If you know what I mean ;)
+	void get_cola(char* key, t_queue* elem) {
+		list_add(colas, elem);
+	}
+
+	dictionary_iterator(self->personajes_blocked, (void*) get_cola);
+
+	bool es_el_personaje(planificador_t_personaje* elem) {
+		return sockets_equalsClients(client, elem->socket);
+	}
+
+	bool buscar_la_cola(t_queue* cola) {
+		planificador_t_personaje* el_personaje = list_find(cola->elements,
+				(void*) es_el_personaje);
+		return el_personaje != NULL ;
+	}
+
+	t_queue* la_cola = list_find(colas, (void*) buscar_la_cola);
+
+	planificador_t_personaje* el_personaje = NULL;
+	if (la_cola != NULL ) {
+		el_personaje = list_find(la_cola->elements, (void*) es_el_personaje);
+	}
+
+	free(colas); //Colas gratis o liberen las colas
+
+	return el_personaje;
+}
+
+void remover_de_bloqueados(t_planificador* self,
+		planificador_t_personaje* personaje) {
+	//If you know what I mean ;)
+
+	t_list* colas = list_create();
+	void get_cola(char* key, t_queue* elem) {
+		list_add(colas, elem);
+	}
+
+	dictionary_iterator(self->personajes_blocked, (void*) get_cola);
+
+	bool es_el_personaje(planificador_t_personaje* elem) {
+		return sockets_equalsClients(personaje->socket, elem->socket);
+	}
+
+	bool buscar_la_cola(t_queue* cola) {
+		planificador_t_personaje* el_personaje = list_find(cola->elements,
+				(void*) es_el_personaje);
+		return el_personaje != NULL ;
+	}
+
+	t_queue* la_cola = list_find(colas, (void*) buscar_la_cola);
+
+	my_list_remove_and_destroy_by_condition(la_cola->elements,
+			(void*) es_el_personaje, (void*) planificador_personaje_destroy);
+
+	free(colas); //Colas gratis o liberen las colas
+
 }
 
 t_socket_client* inotify_socket_wrapper_create(char* file_to_watch) {

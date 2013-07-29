@@ -13,6 +13,7 @@
 #include "../common/sockets.h"
 #include "../common/mensaje.h"
 #include <commons/collections/queue.h>
+#include <commons/collections/dictionary.h>
 
 typedef struct {
 	int puerto;
@@ -28,7 +29,8 @@ typedef struct {
 
 typedef struct {
 	t_queue* personajes_ready;
-	t_queue* personajes_blocked;
+	//El sueño del pibe: un diccionario de colas ;)
+	t_dictionary* personajes_blocked;
 	planificador_t_personaje* personaje_ejecutando;
 	int quantum_total;
 	int quantum_restante;

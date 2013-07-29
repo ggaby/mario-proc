@@ -57,12 +57,12 @@ int main(int argc, char* argv[]) {
 
 		if (!personaje_conectar_a_orquestador(self)) {
 			personaje_destroy(self);
-			return EXIT_FAILURE; //TODO manejar caso de error
+			return EXIT_FAILURE;
 		}
 
 		if (!personaje_get_info_nivel(self)) {
 			personaje_destroy(self);
-			return EXIT_FAILURE; //TODO manejar caso de error
+			return EXIT_FAILURE;
 		}
 
 		log_debug(self->logger,

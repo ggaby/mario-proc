@@ -71,6 +71,13 @@ int main(int argc, char *argv[]) {
 
 		mensaje = mensaje_recibir(client);
 
+		if (mensaje == NULL ) {
+			sockets_destroyClient(client);
+			nivel_loguear(log_warning, self,
+					"Error al recibir el símbolo del personaje.");
+			return NULL ;
+		}
+
 		if (mensaje->type != M_GET_SYMBOL_PERSONAJE_RESPONSE) {
 			mensaje_destroy(mensaje);
 			sockets_destroyClient(client);
@@ -87,7 +94,6 @@ int main(int argc, char *argv[]) {
 		return client;
 	}
 
-	//closure que maneja los mensajes recibidos
 	int recvClosure(t_socket_client* client) {
 
 		t_mensaje* mensaje = mensaje_recibir(client);
@@ -97,8 +103,6 @@ int main(int argc, char *argv[]) {
 			verificar_personaje_desconectado(self, client);
 			return false;
 		}
-
-		//TODO hacer un case, por cada tipo de mensaje que manden los personajes y el orquestador_info
 
 		switch (mensaje->type) {
 		case M_GET_NOMBRE_NIVEL_REQUEST:
@@ -131,9 +135,9 @@ int main(int argc, char *argv[]) {
 
 	nivel_create_verificador_deadlock(self);
 
-	sockets_create_little_server(NULL, self->puerto, self->logger, &self->logger_mutex,
-			self->nombre, self->servers, self->clients, &acceptClosure,
-			&recvClosure, &onSelectClosure);
+	sockets_create_little_server(NULL, self->puerto, self->logger,
+			&self->logger_mutex, self->nombre, self->servers, self->clients,
+			&acceptClosure, &recvClosure, &onSelectClosure);
 
 	nivel_loguear(log_info, self, "cerrado correctamente");
 	nivel_destroy(self);
@@ -276,8 +280,7 @@ void nivel_get_posicion_recurso(nivel_t_nivel* self, char* id_recurso,
 
 	if (recurso == NULL ) {
 		char* mensaje_error = string_from_format(
-				"el recurso %s no se encuentra en el nivel %s", id_recurso,
-				self->nombre);
+				"El recurso %s no se encuentra en el nivel.", id_recurso);
 
 		nivel_loguear(log_warning, self, mensaje_error);
 
@@ -409,12 +412,13 @@ t_recurso* nivel_create_recurso(char* config_string) {
 	int y = atoi(values[4]);
 	new_recurso->posicion = posicion_create(x, y);
 
-	free(values[0]);
-	free(values[1]);
-	free(values[2]);
-	free(values[3]);
-	free(values[4]);
-	free(values);
+	array_destroy(values);
+//	free(values[0]);
+//	free(values[1]);
+//	free(values[2]);
+//	free(values[3]);
+//	free(values[4]);
+//	free(values);
 
 	return new_recurso;
 }

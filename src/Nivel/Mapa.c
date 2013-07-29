@@ -66,7 +66,7 @@ bool mapa_mover_personaje(t_mapa* self, char id_personaje, int xdestino, int yde
 	while ((temp != NULL) && (temp->id != id_personaje)) {
 		temp = temp->next;
 	}
-	if ((temp != NULL) && (temp->id == id_personaje) && (temp->item_type == PERSONAJE_ITEM_TYPE)) { //TODO validamos que solo se puedan mover personajes.
+	if ((temp != NULL) && (temp->id == id_personaje) && (temp->item_type == PERSONAJE_ITEM_TYPE)) {
 		temp->posx = xdestino;
 		temp->posy = ydestino;
 		return true;
