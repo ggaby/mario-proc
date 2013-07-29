@@ -18,9 +18,7 @@ nivel_t_personaje* nivel_create_personaje(nivel_t_nivel* self,
 		char id_personaje, t_socket_client* socket);
 void cargar_recursos_config(t_config* config, nivel_t_nivel* new);
 void nivel_create_grafica_recurso(nivel_t_nivel* self, t_recurso* recurso);
-t_recurso* nivel_create_recurso(char* config_string);
 void nivel_destroy_personaje(nivel_t_personaje* personaje);
-void nivel_destroy_recurso(t_recurso* recurso);
 void nivel_mover_personaje(nivel_t_nivel* self, t_posicion* posicion,
 		t_socket_client* client);
 
@@ -62,34 +60,24 @@ int main(int argc, char *argv[]) {
 
 		mensaje_destroy(mensaje);
 
+		char* mi_nombre = string_from_format("Nivel %s", self->nombre);
 		responder_handshake(client, self->logger, &self->logger_mutex,
-				string_from_format("Nivel %s", self->nombre));
+				mi_nombre);
 
-		mensaje = mensaje_create(M_GET_SYMBOL_PERSONAJE_REQUEST);
-		mensaje_send(mensaje, client);
-		mensaje_destroy(mensaje);
+		free(mi_nombre);
 
-		mensaje = mensaje_recibir(client);
+		char* id_personaje = get_simbolo_personaje(self, client);
 
-		if (mensaje == NULL ) {
-			sockets_destroyClient(client);
-			nivel_loguear(log_warning, self,
-					"Error al recibir el símbolo del personaje.");
+		if (!id_personaje) {
 			return NULL ;
 		}
 
-		if (mensaje->type != M_GET_SYMBOL_PERSONAJE_RESPONSE) {
-			mensaje_destroy(mensaje);
-			sockets_destroyClient(client);
-			nivel_loguear(log_warning, self,
-					"Error recibiendo data del personaje.");
-			return NULL ;
-		}
+		nivel_loguear(log_debug, self, "ID de personaje recibido: %s",
+				id_personaje);
 
 		list_add(self->personajes,
-				nivel_create_personaje(self, ((char*) mensaje->payload)[0],
-						client));
-		mensaje_destroy(mensaje);
+				nivel_create_personaje(self, id_personaje[0], client));
+		free(id_personaje);
 
 		return client;
 	}
@@ -104,25 +92,9 @@ int main(int argc, char *argv[]) {
 			return false;
 		}
 
-		switch (mensaje->type) {
-		case M_GET_NOMBRE_NIVEL_REQUEST:
-			nivel_get_nombre(self, client);
-			break;
-		case M_GET_POSICION_RECURSO_REQUEST:
-			nivel_get_posicion_recurso(self, mensaje->payload, client);
-			break;
-		case M_SOLICITUD_MOVIMIENTO_REQUEST:
-			nivel_mover_personaje(self, posicion_duplicate(mensaje->payload),
-					client);
-			break;
-		case M_SOLICITUD_RECURSO_REQUEST:
-			//TODO verificar si el personaje se encuentra en la posicion del recurso recibido y asignar una instancia.
-			break;
-		default:
-			nivel_loguear(log_warning, self,
-					"Tipo del mensaje recibido no valido tipo: %d",
-					mensaje->type);
-			return false; //TODO WTF this FALSE!! hacer un send_error_message
+		if (!nivel_process_request(self, mensaje, client)) {
+			mensaje_destroy(mensaje);
+			return false;
 		}
 
 		mensaje_destroy(mensaje);
@@ -166,9 +138,11 @@ nivel_t_nivel* nivel_create(char* config_path) {
 	char* log_level = string_duplicate("INFO");
 
 	if (config_has_property(config, "logFile")) {
+		free(log_file);
 		log_file = string_duplicate(config_get_string_value(config, "logFile"));
 	}
 	if (config_has_property(config, "logLevel")) {
+		free(log_level);
 		log_level = string_duplicate(
 				config_get_string_value(config, "logLevel"));
 	}
@@ -210,22 +184,11 @@ void nivel_destroy(nivel_t_nivel* self) {
 	log_destroy(self->logger);
 	pthread_mutex_destroy(&self->logger_mutex);
 
-	//FIXME: Para qué vendría a ser esto?
-//	if (self->socket_orquestador != NULL ) {
-//		bool is_socket_orquestador(t_socket_client* elem) {
-//			return sockets_equalsClients(self->socket_orquestador, elem);
-//		}
-//
-//		my_list_remove_and_destroy_by_condition(self->clients,
-//				(void*) is_socket_orquestador, (void*) sockets_destroyClient);
-//	}
-
 	mapa_destroy(self->mapa);
 
 	list_destroy_and_destroy_elements(self->personajes,
 			(void*) nivel_destroy_personaje);
-	list_destroy_and_destroy_elements(self->recursos,
-			(void*) nivel_destroy_recurso);
+	list_destroy_and_destroy_elements(self->recursos, (void*) recurso_destroy);
 
 	list_destroy_and_destroy_elements(self->clients,
 			(void*) sockets_destroyClient);
@@ -236,17 +199,39 @@ void nivel_destroy(nivel_t_nivel* self) {
 }
 
 void nivel_destroy_personaje(nivel_t_personaje* personaje) {
-	//sockets_destroyClient(personaje->socket);
 	posicion_destroy(personaje->posicion);
 	list_destroy_and_destroy_elements(personaje->recursos_asignados,
-			(void*) nivel_destroy_recurso);
+			(void*) recurso_destroy);
 	free(personaje);
 }
 
-void nivel_destroy_recurso(t_recurso* recurso) {
-	free(recurso->nombre);
-	posicion_destroy(recurso->posicion);
-	free(recurso);
+bool nivel_process_request(nivel_t_nivel* self, t_mensaje* request,
+		t_socket_client* client) {
+	switch (request->type) {
+	case M_GET_NOMBRE_NIVEL_REQUEST:
+		nivel_get_nombre(self, client);
+		break;
+	case M_GET_POSICION_RECURSO_REQUEST:
+		nivel_get_posicion_recurso(self, request->payload, client);
+		break;
+	case M_SOLICITUD_MOVIMIENTO_REQUEST:
+		nivel_mover_personaje(self,
+				posicion_duplicate((t_posicion*) request->payload), client);
+		break;
+	case M_SOLICITUD_RECURSO_REQUEST:
+		nivel_asignar_recurso(self, (t_posicion*) request->payload, client);
+		break;
+	default: {
+		char* error_msg = string_from_format(
+				"Tipo del mensaje recibido no valido tipo: %d", request->type);
+		nivel_loguear(log_warning, self, error_msg);
+		mensaje_create_and_send(M_ERROR, string_duplicate(error_msg),
+				strlen(error_msg) + 1, client);
+		free(error_msg);
+	}
+		return false;
+	}
+	return true;
 }
 
 void nivel_get_nombre(nivel_t_nivel* self, t_socket_client* client) {
@@ -260,8 +245,10 @@ void nivel_loguear(void log_fn(t_log*, const char*, ...), nivel_t_nivel* self,
 	va_list arguments;
 	va_start(arguments, message);
 	char* template = string_from_format("Nivel %s: %s", self->nombre, message);
-	log_fn(self->logger, string_from_vformat(template, arguments));
+	char* msg = string_from_vformat(template, arguments);
+	log_fn(self->logger, msg);
 	free(template);
+	free(msg);
 	va_end(arguments);
 	pthread_mutex_unlock(&self->logger_mutex);
 }
@@ -301,7 +288,6 @@ void nivel_get_posicion_recurso(nivel_t_nivel* self, char* id_recurso,
 }
 
 bool verificar_argumentos(int argc, char* argv[]) {
-//TODO Validar parametros: ver si no es igual al de personaje para no repetir codigo. Tal vez se puede parametrizar la cantidad de args.
 	if (argc < 2) {
 		printf("Error en la cantidad de argumentos.\n");
 		return false;
@@ -343,6 +329,10 @@ void nivel_mover_personaje(nivel_t_nivel* self, t_posicion* posicion,
 			(void*) is_personaje);
 
 	int distancia = posicion_get_distancia(personaje->posicion, posicion);
+
+	nivel_loguear(log_debug, self, "Personaje: (%d,%d), pos: (%d,%d)",
+			personaje->posicion->x, personaje->posicion->y, posicion->x,
+			posicion->y);
 
 	if (distancia != DISTANCIA_MOVIMIENTO_PERMITIDA) {
 		char* mensaje_error =
@@ -388,7 +378,7 @@ void cargar_recursos_config(t_config* config, nivel_t_nivel* new) {
 	char* key = string_from_format("Caja%d", index);
 
 	while (config_has_property(config, key)) {
-		t_recurso* recurso = nivel_create_recurso(
+		t_recurso* recurso = recurso_from_config_string(
 				config_get_string_value(config, key));
 		list_add(new->recursos, recurso);
 		nivel_create_grafica_recurso(new, recurso);
@@ -397,30 +387,6 @@ void cargar_recursos_config(t_config* config, nivel_t_nivel* new) {
 	}
 
 	free(key);
-}
-
-t_recurso* nivel_create_recurso(char* config_string) {
-//config_string example: Caja1=Flores,F,3,23,5
-	char** values = string_split(config_string, ",");
-
-	t_recurso* new_recurso = malloc(sizeof(t_recurso));
-	new_recurso->nombre = string_duplicate(values[0]);
-	new_recurso->simbolo = values[1][0]; // get first char of string.
-	new_recurso->cantidad = atoi(values[2]);
-
-	int x = atoi(values[3]);
-	int y = atoi(values[4]);
-	new_recurso->posicion = posicion_create(x, y);
-
-	array_destroy(values);
-//	free(values[0]);
-//	free(values[1]);
-//	free(values[2]);
-//	free(values[3]);
-//	free(values[4]);
-//	free(values);
-
-	return new_recurso;
 }
 
 void nivel_create_grafica_recurso(nivel_t_nivel* self, t_recurso* recurso) {
@@ -438,10 +404,11 @@ void verificar_personaje_desconectado(nivel_t_nivel* self,
 	nivel_t_personaje* personaje_desconectado = list_find(self->personajes,
 			(void*) es_el_personaje);
 
-//TODO LIBERAR RECURSOS
 	if (personaje_desconectado != NULL ) {
 		nivel_loguear(log_warning, self, "El personaje %c se ha desconectado",
 				personaje_desconectado->id);
+		nivel_liberar_recursos(self,
+				personaje_desconectado->recursos_asignados);
 		mapa_borrar_item(self->mapa, personaje_desconectado->id);
 		my_list_remove_and_destroy_by_condition(self->personajes,
 				(void*) es_el_personaje, (void*) nivel_destroy_personaje);
@@ -454,4 +421,118 @@ void nivel_create_verificador_deadlock(nivel_t_nivel* self) {
 	pthread_create(&thread_verificador_deadlock, NULL, verificador_deadlock,
 			(void*) self);
 //	return thread_verificador_deadlock;?
+}
+
+char* get_simbolo_personaje(nivel_t_nivel* self, t_socket_client* client) {
+	t_mensaje* mensaje = mensaje_create(M_GET_SYMBOL_PERSONAJE_REQUEST);
+	mensaje_send(mensaje, client);
+	mensaje_destroy(mensaje);
+
+	mensaje = mensaje_recibir(client);
+
+	if (mensaje == NULL ) {
+		sockets_destroyClient(client);
+		nivel_loguear(log_warning, self,
+				"Error al recibir el símbolo del personaje.");
+		return NULL ;
+	}
+
+	if (mensaje->type != M_GET_SYMBOL_PERSONAJE_RESPONSE) {
+		mensaje_destroy(mensaje);
+		sockets_destroyClient(client);
+		nivel_loguear(log_warning, self,
+				"Error recibiendo data del personaje.");
+		return NULL ;
+	}
+
+	char* simbolo = string_duplicate((char*) mensaje->payload);
+	mensaje_destroy(mensaje);
+	return simbolo;
+}
+
+void nivel_asignar_recurso(nivel_t_nivel* self, t_posicion* posicion,
+		t_socket_client* client) {
+
+	bool es_el_recurso(t_recurso* elem) {
+		return posicion_equals(elem->posicion, posicion);
+	}
+
+	bool es_el_personaje(nivel_t_personaje* elem) {
+		return sockets_equalsClients(elem->socket, client);
+	}
+
+	t_recurso* el_recurso = list_find(self->recursos, (void*) es_el_recurso);
+
+	if (el_recurso == NULL ) {
+		char* error_msg = string_from_format(
+				"Recurso solicitado inválido (%d,%d)", posicion->x,
+				posicion->y);
+		nivel_loguear(log_warning, self, error_msg);
+		mensaje_create_and_send(M_ERROR, string_duplicate(error_msg),
+				strlen(error_msg) + 1, client);
+		free(error_msg);
+		return;
+	}
+
+	nivel_t_personaje* el_personaje = list_find(self->personajes,
+			(void*) es_el_personaje);
+
+	if (el_personaje == NULL ) {
+		nivel_loguear(log_warning, self,
+				"Parece que el personaje se desconectó solicitando un recurso");
+		verificar_personaje_desconectado(self, client);
+		return;
+	}
+
+	if (el_recurso->cantidad > 0) {
+		asignar_recurso_a_personaje(self, el_personaje, el_recurso);
+		el_recurso->cantidad--;
+		mensaje_create_and_send(M_SOLICITUD_RECURSO_RESPONSE_OK, NULL, 0,
+				client);
+	} else {
+		nivel_loguear(log_info, self, "Recursos %s insuficientes, bloqueando",
+				el_recurso->nombre);
+		//TODO: Acá se bloquea un personaje... no se si @demian tenés que hacer algo más
+		mensaje_create_and_send(M_SOLICITUD_RECURSO_RESPONSE_BLOCKED,
+				string_duplicate(el_recurso->nombre),
+				strlen(el_recurso->nombre) + 1, client);
+	}
+}
+
+void asignar_recurso_a_personaje(nivel_t_nivel* self,
+		nivel_t_personaje* personaje, t_recurso* recurso) {
+
+	bool es_el_recurso(t_recurso* elem) {
+		return recurso_equals(recurso, elem);
+	}
+
+	t_recurso* recurso_asignado = list_find(personaje->recursos_asignados,
+			(void*) es_el_recurso);
+
+	if (recurso_asignado == NULL ) {
+		recurso_asignado = recurso_clone(recurso);
+		recurso_asignado->cantidad = 1;
+		list_add(personaje->recursos_asignados, recurso_asignado);
+	} else {
+		recurso_asignado->cantidad++;
+	}
+}
+
+void nivel_liberar_recursos(nivel_t_nivel* self, t_list* recursos) {
+
+	void liberar_recurso(t_recurso* recurso) {
+		bool es_el_recurso(t_recurso* elem) {
+			return recurso_equals(recurso, elem);
+		}
+
+		t_recurso* mi_recurso = list_find(self->recursos,
+				(void*) es_el_recurso);
+		mi_recurso->cantidad += recurso->cantidad;
+		nivel_loguear(log_info, self,
+				"Se liberaron %d instancias del recurso %s", recurso->cantidad,
+				recurso->nombre);
+	}
+
+	list_iterate(recursos, (void *) liberar_recurso);
+	//TODO: ver si hay que dibujar algo en el mapa
 }

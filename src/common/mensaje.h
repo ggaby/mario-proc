@@ -21,7 +21,6 @@
 //Errores (11-20)
 #define M_ERROR 11
 
-//TODO No puede separarse en request y response ya que depende de donde se vea... o no?
 //Request(21-40)
 #define M_GET_INFO_NIVEL_REQUEST 21
 #define M_GET_NOMBRE_NIVEL_REQUEST 22
@@ -37,10 +36,11 @@
 #define M_GET_SYMBOL_PERSONAJE_RESPONSE 44
 #define M_GET_POSICION_RECURSO_RESPONSE 45
 #define M_SOLICITUD_MOVIMIENTO_OK_RESPONSE 46
-
-
-#define M_TURNO_FINALIZADO 47
-#define M_NOTIFICACION_MOVIMIENTO 48
+#define M_SOLICITUD_RECURSO_RESPONSE_OK 47
+#define M_SOLICITUD_RECURSO_RESPONSE_BLOCKED 48
+#define M_TURNO_FINALIZADO_OK 47
+#define M_TURNO_FINALIZADO_BLOCKED 48
+#define M_NOTIFICACION_MOVIMIENTO 49
 
 
 //Contenidos de Mensajes

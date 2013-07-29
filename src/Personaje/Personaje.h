@@ -36,6 +36,7 @@ typedef struct {
 	t_log* logger;
 	t_personaje_nivel* nivel_actual;
 	t_posicion* posicion;
+	t_posicion* posicion_objetivo;
 } t_personaje;
 
 t_personaje* personaje_create(char* config_path);
@@ -49,5 +50,10 @@ bool personaje_conectar_a_orquestador(t_personaje* self);
 bool personaje_conectar_a_nivel(t_personaje* self);
 bool personaje_conectar_a_planificador(t_personaje* self);
 bool personaje_jugar_nivel(t_personaje* self);
+t_posicion* pedir_posicion_objetivo(t_personaje* self, char* objetivo);
+bool realizar_movimiento(t_personaje* self);
+bool mover_en_nivel(t_personaje* self);
+bool finalizar_turno(t_personaje* self, char* objetivo);
+t_mensaje* solicitar_recurso(t_personaje* self);
 
 #endif /* PERSONAJE_H_ */

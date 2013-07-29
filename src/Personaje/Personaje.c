@@ -82,12 +82,12 @@ int main(int argc, char* argv[]) {
 
 		if (!personaje_conectar_a_nivel(self)) {
 			personaje_destroy(self);
-			return EXIT_FAILURE; //TODO manejar caso de error
+			return EXIT_FAILURE;
 		}
 
 		if (!personaje_conectar_a_planificador(self)) {
 			personaje_destroy(self);
-			return EXIT_FAILURE; //TODO manejar caso de error
+			return EXIT_FAILURE;
 		}
 
 		if (!personaje_jugar_nivel(self)) {
@@ -194,6 +194,7 @@ t_personaje* personaje_create(char* config_path) {
 	new->socket_orquestador = NULL;
 	new->nivel_actual = NULL;
 	new->posicion = NULL;
+	new->posicion_objetivo = NULL;
 
 	free(s);
 	free(log_file);
@@ -219,6 +220,10 @@ void personaje_destroy(t_personaje* self) {
 	}
 	if (self->posicion != NULL ) {
 		posicion_destroy(self->posicion);
+	}
+
+	if (self->posicion_objetivo != NULL ) {
+		posicion_destroy(self->posicion_objetivo);
 	}
 
 	free(self);
@@ -358,7 +363,6 @@ bool personaje_jugar_nivel(t_personaje* self) {
 			self->nivel_actual->nombre);
 
 	int objetivos_index = 0;
-	t_posicion* posicion_objetivo = NULL;
 	char* objetivo = NULL;
 
 	while (objetivos[objetivos_index] != NULL ) {
@@ -367,105 +371,31 @@ bool personaje_jugar_nivel(t_personaje* self) {
 		log_info(self->logger, "Personaje %s: nuevo objetivo %s", self->nombre,
 				objetivo);
 
-		if (posicion_objetivo == NULL ) {
-
-			mensaje_create_and_send(M_GET_POSICION_RECURSO_REQUEST,
-					string_duplicate(objetivo), strlen(objetivo) + 1,
-					self->nivel_actual->socket_nivel);
-
-			t_mensaje* mensaje = mensaje_recibir(
-					self->nivel_actual->socket_nivel);
-
-			if (mensaje == NULL ) {
-				log_error(self->logger,
-						"Personaje %s: El nivel %s se ha desconectado.",
-						self->nombre, self->nivel_actual->nombre);
-				free(objetivo);
-				return false;
-			}
-
-			posicion_objetivo = posicion_duplicate(mensaje->payload);
-			mensaje_destroy(mensaje);
-
-			log_info(self->logger, "Personaje %s: %s esta en (%d,%d)",
-					self->nombre, objetivo, posicion_objetivo->x,
-					posicion_objetivo->y);
+		if (self->posicion_objetivo == NULL ) {
+			self->posicion_objetivo = pedir_posicion_objetivo(self, objetivo);
 		}
 
-		while (!posicion_equals(self->posicion, posicion_objetivo)) {
+		if (self->posicion_objetivo == NULL ) {
+			free(objetivo);
+			return false;
+		}
 
-			t_mensaje* notificacion_movimiento = mensaje_recibir(
-					self->nivel_actual->socket_planificador);
+		while (!posicion_equals(self->posicion, self->posicion_objetivo)) {
 
-			if (notificacion_movimiento == NULL ) {
-				log_error(self->logger,
-						"Personaje %s: El planificador se ha desconectado.",
-						self->nombre);
-				posicion_destroy(posicion_objetivo);
+			if (!realizar_movimiento(self)) {
 				free(objetivo);
 				return false;
 			}
 
-			int mensaje_type = notificacion_movimiento->type;
-			mensaje_destroy(notificacion_movimiento);
-
-			if (mensaje_type == M_NOTIFICACION_MOVIMIENTO) {
-
-				t_posicion* proxima_posicion = posicion_get_proxima_hacia(
-						self->posicion, posicion_objetivo);
-
-				mensaje_create_and_send(M_SOLICITUD_MOVIMIENTO_REQUEST,
-						posicion_duplicate(proxima_posicion),
-						sizeof(t_posicion), self->nivel_actual->socket_nivel);
-
-				t_mensaje* solicitud_mov_response = mensaje_recibir(
-						self->nivel_actual->socket_nivel);
-
-				if (solicitud_mov_response == NULL ) {
-					log_error(self->logger,
-							"Personaje %s: El nivel %s se ha desconectado.",
-							self->nombre, self->nivel_actual->nombre);
-					posicion_destroy(posicion_objetivo);
-					free(objetivo);
-					return false;
-				}
-
-				if (solicitud_mov_response->type == M_ERROR) {
-
-					log_error(self->logger, "Movimiento rechazado: %s",
-							solicitud_mov_response->payload);
-
-				} else if (solicitud_mov_response->type
-						== M_SOLICITUD_MOVIMIENTO_OK_RESPONSE) {
-
-					posicion_destroy(self->posicion);
-					self->posicion = proxima_posicion;
-				}
-
-				mensaje_destroy(solicitud_mov_response);
-
-				//Aviso Al planificador que termino el turno
-				mensaje_create_and_send(M_TURNO_FINALIZADO, NULL, 0,
-						self->nivel_actual->socket_planificador);
-
+			if (!finalizar_turno(self, objetivo)) {
+				free(objetivo);
+				return false;
 			}
 
-		} //Fin while self->posicion != posicion_objetivo
-
-		//Aca llegue al recurso!
-		log_info(self->logger, "Personaje %s: objetivo %s alcanzado",
-				self->nombre, objetivo);
-
-		mensaje_create_and_send(M_SOLICITUD_RECURSO_REQUEST,
-				string_duplicate(objetivo), strlen(objetivo),
-				self->nivel_actual->socket_nivel);
-
-		//TODO PROCESAR EL BLOQUEO, ETC
-
-		posicion_destroy(posicion_objetivo);
-		posicion_objetivo = NULL;
+		}
+		posicion_destroy(self->posicion_objetivo);
+		self->posicion_objetivo = NULL;
 		free(objetivo);
-
 	}
 
 	// Finalice el nivel.
@@ -474,4 +404,138 @@ bool personaje_jugar_nivel(t_personaje* self) {
 	log_info(self->logger, "Personaje %s: finalice nivel %s", self->nombre,
 			self->nivel_actual->nombre);
 	return true;
+}
+
+t_posicion* pedir_posicion_objetivo(t_personaje* self, char* objetivo) {
+
+	mensaje_create_and_send(M_GET_POSICION_RECURSO_REQUEST,
+			string_duplicate(objetivo), strlen(objetivo) + 1,
+			self->nivel_actual->socket_nivel);
+
+	t_mensaje* mensaje = mensaje_recibir(self->nivel_actual->socket_nivel);
+
+	if (mensaje == NULL ) {
+		log_error(self->logger, "Personaje %s: El nivel %s se ha desconectado.",
+				self->nombre, self->nivel_actual->nombre);
+		return NULL ;
+	}
+
+	t_posicion* posicion_objetivo = posicion_duplicate(mensaje->payload);
+	mensaje_destroy(mensaje);
+
+	log_info(self->logger, "Personaje %s: %s esta en (%d,%d)", self->nombre,
+			objetivo, posicion_objetivo->x, posicion_objetivo->y);
+	return posicion_objetivo;
+}
+
+bool realizar_movimiento(t_personaje* self) {
+	t_mensaje* notificacion_movimiento = mensaje_recibir(
+			self->nivel_actual->socket_planificador);
+
+	if (notificacion_movimiento == NULL ) {
+		log_error(self->logger,
+				"Personaje %s: El planificador se ha desconectado.",
+				self->nombre);
+		return false;
+	}
+
+	int mensaje_type = notificacion_movimiento->type;
+	mensaje_destroy(notificacion_movimiento);
+
+	if (mensaje_type == M_NOTIFICACION_MOVIMIENTO) {
+		return mover_en_nivel(self);
+	}
+	return false;
+}
+
+bool mover_en_nivel(t_personaje* self) {
+	t_posicion* proxima_posicion = posicion_get_proxima_hacia(self->posicion,
+			self->posicion_objetivo);
+
+	mensaje_create_and_send(M_SOLICITUD_MOVIMIENTO_REQUEST,
+			posicion_duplicate(proxima_posicion), sizeof(t_posicion),
+			self->nivel_actual->socket_nivel);
+
+	t_mensaje* solicitud_mov_response = mensaje_recibir(
+			self->nivel_actual->socket_nivel);
+
+	if (solicitud_mov_response == NULL ) {
+		log_error(self->logger, "Personaje %s: El nivel %s se ha desconectado.",
+				self->nombre, self->nivel_actual->nombre);
+		posicion_destroy(proxima_posicion);
+		return false;
+	}
+
+	if (solicitud_mov_response->type == M_ERROR) {
+		log_error(self->logger, "Movimiento rechazado: %s",
+				(char*) solicitud_mov_response->payload);
+		mensaje_destroy(solicitud_mov_response);
+		posicion_destroy(proxima_posicion);
+		return false;
+	}
+
+	if (solicitud_mov_response->type == M_SOLICITUD_MOVIMIENTO_OK_RESPONSE) {
+		posicion_destroy(self->posicion);
+		self->posicion = proxima_posicion;
+		mensaje_destroy(solicitud_mov_response);
+		return true;
+	}
+	mensaje_destroy(solicitud_mov_response);
+	posicion_destroy(proxima_posicion);
+	return false;
+}
+
+//TODO: Revisar los returns y ver si se puede mejorar el if... o no :P
+bool finalizar_turno(t_personaje* self, char* objetivo) {
+
+	if (posicion_equals(self->posicion, self->posicion_objetivo)) { //Llegué al recurso
+		log_info(self->logger, "Personaje %s: objetivo %s alcanzado",
+				self->nombre, objetivo);
+		t_mensaje* result = solicitar_recurso(self);
+
+		if (result == NULL ) {
+			return false;
+		}
+
+		if (result->type == M_SOLICITUD_RECURSO_RESPONSE_OK) {
+			log_info(self->logger, "Personaje %s: objetivo %s asignado",
+					self->nombre, objetivo);
+			mensaje_create_and_send(M_TURNO_FINALIZADO_OK, NULL, 0,
+					self->nivel_actual->socket_planificador);
+			mensaje_destroy(result);
+			return true;
+		}
+
+		if (result->type == M_SOLICITUD_RECURSO_RESPONSE_BLOCKED) {
+			log_info(self->logger, "Personaje %s: objetivo %s NO asignado",
+					self->nombre, objetivo);
+			mensaje_create_and_send(M_TURNO_FINALIZADO_BLOCKED,
+					string_duplicate(objetivo), strlen(objetivo) + 1,
+					self->nivel_actual->socket_planificador);
+			mensaje_destroy(result);
+			return true;
+		}
+		mensaje_destroy(result);
+		return false;
+	} else {
+		mensaje_create_and_send(M_TURNO_FINALIZADO_OK, NULL, 0,
+				self->nivel_actual->socket_planificador);
+		return true;
+	}
+	return false;
+}
+
+t_mensaje* solicitar_recurso(t_personaje* self) {
+	mensaje_create_and_send(M_SOLICITUD_RECURSO_REQUEST,
+			posicion_duplicate(self->posicion), sizeof(t_posicion),
+			self->nivel_actual->socket_nivel);
+
+	t_mensaje* recurso_response = mensaje_recibir(
+			self->nivel_actual->socket_nivel);
+
+	if (recurso_response == NULL ) {
+		return NULL ;
+	}
+	return recurso_response;
+
 }

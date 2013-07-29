@@ -186,8 +186,11 @@ bool planificador_process_request(t_planificador* self, t_mensaje* mensaje,
 		t_plataforma* plataforma) {
 
 	switch (mensaje->type) {
-	case M_TURNO_FINALIZADO:
-		planificador_finalizar_turno(self, mensaje);
+	case M_TURNO_FINALIZADO_OK:
+		planificador_finalizar_turno(self);
+		break;
+	case M_TURNO_FINALIZADO_BLOCKED:
+		planificador_finalizar_turno_bloqueado(self, mensaje);
 		break;
 	default:
 		pthread_mutex_lock(&plataforma->logger_mutex);
@@ -201,17 +204,19 @@ bool planificador_process_request(t_planificador* self, t_mensaje* mensaje,
 	return true;
 }
 
-void planificador_finalizar_turno(t_planificador* self, t_mensaje* mensaje) {
-	if (mensaje->length == 0) { //Terminó el turno OK
-		if (self->quantum_restante == 0) {
-			planificador_cambiar_de_personaje(self);
-			planificador_resetear_quantum(self);
-		}
-	} else { //Quedó bloqueado
-		bloquear_personaje(self, (char*) mensaje->payload);
+void planificador_finalizar_turno(t_planificador* self) {
+	if (self->quantum_restante == 0) {
+		planificador_cambiar_de_personaje(self);
 		planificador_resetear_quantum(self);
 	}
 
+	planificador_mover_personaje(self);
+}
+
+void planificador_finalizar_turno_bloqueado(t_planificador* self,
+		t_mensaje* mensaje) {
+	bloquear_personaje(self, (char*) mensaje->payload);
+	planificador_resetear_quantum(self);
 	planificador_mover_personaje(self);
 }
 
@@ -222,7 +227,7 @@ void bloquear_personaje(t_planificador* self, char* recurso) {
 	t_queue* cola_bloqueados = dictionary_get(self->personajes_blocked,
 			recurso);
 	queue_push(cola_bloqueados, self->personaje_ejecutando);
-	self->personajes_ready = queue_pop(self->personajes_ready);
+	self->personaje_ejecutando = queue_pop(self->personajes_ready);
 }
 
 /*
@@ -265,7 +270,7 @@ void verificar_personaje_desconectado(t_planificador* self,
 		return sockets_equalsClients(client, elem->socket);
 	}
 
-	//Alto hack: queue->elements se puede manejar como una lista y recorrerla ;)
+//Alto hack: queue->elements se puede manejar como una lista y recorrerla ;)
 	planificador_t_personaje* personaje_desconectado = list_find(
 			self->personajes_ready->elements, (void*) es_el_personaje);
 	if (personaje_desconectado != NULL ) {
@@ -348,7 +353,6 @@ planificador_t_personaje* buscar_personaje_bloqueado(t_planificador* self,
 
 void remover_de_bloqueados(t_planificador* self,
 		planificador_t_personaje* personaje) {
-	//If you know what I mean ;)
 
 	t_list* colas = list_create();
 	void get_cola(char* key, t_queue* elem) {
@@ -373,7 +377,6 @@ void remover_de_bloqueados(t_planificador* self,
 			(void*) es_el_personaje, (void*) planificador_personaje_destroy);
 
 	free(colas); //Colas gratis o liberen las colas
-
 }
 
 t_socket_client* inotify_socket_wrapper_create(char* file_to_watch) {

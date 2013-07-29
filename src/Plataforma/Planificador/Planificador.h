@@ -19,7 +19,9 @@ bool planificador_esta_procesando(t_planificador* self);
 void planificador_resetear_quantum(t_planificador* self);
 bool planificador_process_request(t_planificador* self, t_mensaje* mensaje,
 		t_plataforma* plataforma);
-void planificador_finalizar_turno(t_planificador* self, t_mensaje* mensaje);
+void planificador_finalizar_turno(t_planificador* self);
+void planificador_finalizar_turno_bloqueado(t_planificador* self,
+		t_mensaje* mensaje);
 void planificador_mover_personaje(t_planificador* self);
 void planificador_cambiar_de_personaje(t_planificador* self);
 void verificar_personaje_desconectado(t_planificador* self,
