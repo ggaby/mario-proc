@@ -27,5 +27,7 @@ void orquestador_send_error_message(char* error_description,
 		t_socket_client* client);
 void verificar_nivel_desconectado(t_plataforma* plataforma,
 		t_socket_client* client);
+void orquestador_handler_deadlock(char* ids_personajes_en_deadlock,
+		t_plataforma* plataforma, t_socket_client* socket_nivel);
 
 #endif /* ORQUESTADOR_H_ */

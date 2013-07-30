@@ -68,7 +68,8 @@ int main(int argc, char *argv[]) {
 
 		free(mi_nombre);
 
-		char* id_personaje = get_simbolo_personaje(self, client);
+		char* id_personaje = mensaje_get_simbolo_personaje(client, self->logger,
+				&self->logger_mutex);
 
 		if (!id_personaje) {
 			return NULL ;
@@ -441,33 +442,6 @@ void nivel_create_verificador_deadlock(nivel_t_nivel* self) {
 	pthread_create(&thread_verificador_deadlock, NULL, verificador_deadlock,
 			(void*) self);
 //	return thread_verificador_deadlock;?
-}
-
-char* get_simbolo_personaje(nivel_t_nivel* self, t_socket_client* client) {
-	t_mensaje* mensaje = mensaje_create(M_GET_SYMBOL_PERSONAJE_REQUEST);
-	mensaje_send(mensaje, client);
-	mensaje_destroy(mensaje);
-
-	mensaje = mensaje_recibir(client);
-
-	if (mensaje == NULL ) {
-		sockets_destroyClient(client);
-		nivel_loguear(log_warning, self,
-				"Error al recibir el símbolo del personaje.");
-		return NULL ;
-	}
-
-	if (mensaje->type != M_GET_SYMBOL_PERSONAJE_RESPONSE) {
-		mensaje_destroy(mensaje);
-		sockets_destroyClient(client);
-		nivel_loguear(log_warning, self,
-				"Error recibiendo data del personaje.");
-		return NULL ;
-	}
-
-	char* simbolo = string_duplicate((char*) mensaje->payload);
-	mensaje_destroy(mensaje);
-	return simbolo;
 }
 
 void nivel_asignar_recurso(nivel_t_nivel* self, t_posicion* posicion,

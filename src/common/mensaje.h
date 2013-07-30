@@ -43,6 +43,8 @@
 #define M_NOTIFICACION_MOVIMIENTO 49
 #define M_FIN_DE_NIVEL 50
 
+#define M_DEADLOCK_DETECTADO 51
+
 //Contenidos de Mensajes
 #define PERSONAJE_HANDSHAKE "Aquí un personaje"
 #define NIVEL_HANDSHAKE "Aqui un nivel"
@@ -93,4 +95,6 @@ t_get_info_nivel_response* get_info_nivel_response_deserialize(char* data);
 void get_info_nivel_response_destroy(t_get_info_nivel_response* self);
 void responder_handshake(t_socket_client* client, t_log* logger,
 		pthread_mutex_t* log_mutex, char* name);
+char* mensaje_get_simbolo_personaje(t_socket_client* socket_personaje, t_log* logger,
+		pthread_mutex_t* log_mutex);
 #endif /* MENSAJE_H_ */

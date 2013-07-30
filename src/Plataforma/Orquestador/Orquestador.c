@@ -13,6 +13,7 @@
 #include "Orquestador.h"
 #include "../../common/list.h"
 #include "../Planificador/Planificador.h"
+#include "../../common/common_structs.h"
 
 #define PUERTO_ORQUESTADOR 5000
 
@@ -119,28 +120,40 @@ void orquestador_destroy(t_orquestador* self) {
 
 void process_request(t_mensaje* request, t_socket_client* client,
 		t_plataforma* plataforma) {
-	if (request->type == M_GET_INFO_NIVEL_REQUEST) {
-		return orquestador_get_info_nivel(request, client, plataforma);
-	} else if (request->type == M_FIN_DE_NIVEL) {
+
+	switch (request->type) {
+	case M_GET_INFO_NIVEL_REQUEST:
+		orquestador_get_info_nivel(request, client, plataforma);
+		break;
+
+	case M_FIN_DE_NIVEL:
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_info(plataforma->logger,
 				"Orquestador: El personaje en el socket %d ha finalizado el nivel",
 				client->socket->desc);
 		pthread_mutex_unlock(&plataforma->logger_mutex);
-	} else {
+		break;
+
+	case M_DEADLOCK_DETECTADO:
+		orquestador_handler_deadlock(string_duplicate(request->payload),
+				plataforma, client);
+		break;
+
+	default:
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_warning(plataforma->logger,
 				"Orquestador: Tipo de Request desconocido: %d", request->type);
 		pthread_mutex_unlock(&plataforma->logger_mutex);
-		return orquestador_send_error_message("Request desconocido", client);
+		orquestador_send_error_message("Request desconocido", client);
 	}
+
 }
 
 void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client,
 		t_plataforma* plataforma) {
 	char* nivel_pedido = string_duplicate((char*) request->payload);
 
-	plataforma_t_nivel* el_nivel = plataforma_get_nivel(plataforma,
+	plataforma_t_nivel* el_nivel = plataforma_get_nivel_by_nombre(plataforma,
 			nivel_pedido);
 
 	if (el_nivel == NULL ) {
@@ -263,5 +276,48 @@ void verificar_nivel_desconectado(t_plataforma* plataforma,
 				"Orquestador: Se terminó de limpiar las estructuras");
 		pthread_mutex_unlock(&plataforma->logger_mutex);
 	}
+
+}
+
+void orquestador_handler_deadlock(char* ids_personajes_en_deadlock,
+		t_plataforma* plataforma, t_socket_client* socket_nivel) {
+
+	plataforma_t_nivel* nivel = plataforma_get_nivel_by_socket(plataforma,
+			socket_nivel);
+
+	pthread_mutex_lock(&plataforma->logger_mutex);
+	log_info(plataforma->logger,
+			"Orquestador: Deadlock detectado en nivel %s entre: %s",
+			nivel->nombre, ids_personajes_en_deadlock);
+	pthread_mutex_unlock(&plataforma->logger_mutex);
+
+	t_list* personajes = list_create();
+
+	char** ids = string_split(ids_personajes_en_deadlock, " ");
+
+	void buscar_y_agregar_en_lista(char* id) {
+		planificador_t_personaje* el_personaje =
+				buscar_personaje_bloqueado_by_id(nivel->planificador, id[0]);
+
+		if(el_personaje != NULL){
+			list_add(personajes, el_personaje);
+		}
+	}
+
+	string_iterate_lines(ids, (void*) buscar_y_agregar_en_lista);
+	array_destroy(ids);
+
+	bool comparator(planificador_t_personaje* p1, planificador_t_personaje* p2){
+		return strcmp(p1->tiempo_llegada, p2->tiempo_llegada) == -1;
+	}
+
+	list_sort(personajes, (void*)comparator);
+
+	planificador_t_personaje* victima = list_get(personajes, 0);
+
+	pthread_mutex_lock(&plataforma->logger_mutex);
+	log_info(plataforma->logger,
+			"Orquestador: victima: %c", victima->id);
+	pthread_mutex_unlock(&plataforma->logger_mutex);
 
 }

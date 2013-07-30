@@ -372,7 +372,33 @@ bool personaje_conectar_a_planificador(t_personaje* self) {
 			M_HANDSHAKE_PERSONAJE, PERSONAJE_HANDSHAKE, HANDSHAKE_SUCCESS,
 			"Planificador");
 
-	return (self->nivel_actual->socket_planificador != NULL );
+	if (self->nivel_actual->socket_planificador == NULL ) {
+		return false;
+	}
+
+	t_mensaje* mensaje = mensaje_recibir(self->nivel_actual->socket_planificador);
+
+	if (mensaje == NULL ) {
+		log_error(self->logger, "Personaje %s: El planificador del nivel %s se ha desconectado.",
+				self->nombre, self->nivel_actual->nombre);
+		return false;
+	}
+
+	if (mensaje->type != M_GET_SYMBOL_PERSONAJE_REQUEST) {
+		mensaje_destroy(mensaje);
+		return false;
+	}
+
+	mensaje_destroy(mensaje);
+
+	char* simbolo = string_from_format("%c", self->simbolo);
+
+	mensaje_create_and_send(M_GET_SYMBOL_PERSONAJE_RESPONSE,
+			string_duplicate(simbolo), strlen(simbolo) + 1,
+			self->nivel_actual->socket_planificador);
+	free(simbolo);
+
+	return true;
 }
 
 bool personaje_jugar_nivel(t_personaje* self) {
