@@ -24,3 +24,19 @@ void my_list_remove_and_destroy_by_condition(t_list *self,
 		}
 	}
 }
+
+/*
+ *Retorna una nueva lista que contiene las copias de cada elem de self.
+ */
+t_list* my_list_clone_and_clone_elements(t_list* self, void* clonador(void*)) {
+	t_list* list_clone = list_create();
+
+	void _clonar_add_elem(void* elem) {
+		void* clone = clonador(elem);
+		list_add(list_clone, clone);
+	}
+
+	list_iterate(self, (void*) _clonar_add_elem);
+
+	return list_clone;
+}

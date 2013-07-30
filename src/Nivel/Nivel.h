@@ -36,6 +36,7 @@ typedef struct {
 	char id;
 	t_posicion* posicion;
 	t_list* recursos_asignados;
+	char* simbolo_recurso_esperado;
 } nivel_t_personaje;
 
 nivel_t_nivel* nivel_create(char* config_path);
@@ -57,5 +58,6 @@ void nivel_asignar_recurso(nivel_t_nivel* self, t_posicion* posicion,
 void asignar_recurso_a_personaje(nivel_t_nivel* self,
 		nivel_t_personaje* personaje, t_recurso* recurso);
 void nivel_liberar_recursos(nivel_t_nivel* self, t_list* recursos);
+void nivel_destroy_personaje(nivel_t_personaje* personaje);
 
 #endif /* NIVEL_H_ */

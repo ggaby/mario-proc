@@ -18,9 +18,12 @@ nivel_t_personaje* nivel_create_personaje(nivel_t_nivel* self,
 		char id_personaje, t_socket_client* socket);
 void cargar_recursos_config(t_config* config, nivel_t_nivel* new);
 void nivel_create_grafica_recurso(nivel_t_nivel* self, t_recurso* recurso);
-void nivel_destroy_personaje(nivel_t_personaje* personaje);
 void nivel_mover_personaje(nivel_t_nivel* self, t_posicion* posicion,
 		t_socket_client* client);
+
+void nivel_bloquear_personaje(nivel_t_personaje* personaje, t_recurso* recurso);
+void nivel_desbloquear_personaje(nivel_t_personaje* personaje);
+
 
 int main(int argc, char *argv[]) {
 
@@ -199,7 +202,10 @@ void nivel_destroy(nivel_t_nivel* self) {
 }
 
 void nivel_destroy_personaje(nivel_t_personaje* personaje) {
-	posicion_destroy(personaje->posicion);
+	if(personaje->posicion != NULL){
+		posicion_destroy(personaje->posicion);
+	}
+	nivel_desbloquear_personaje(personaje);
 	list_destroy_and_destroy_elements(personaje->recursos_asignados,
 			(void*) recurso_destroy);
 	free(personaje);
@@ -313,6 +319,7 @@ nivel_t_personaje* nivel_create_personaje(nivel_t_nivel* self,
 	personaje->posicion = posicion_create(0, 0);
 	personaje->socket = socket;
 	personaje->recursos_asignados = list_create();
+	personaje->simbolo_recurso_esperado = NULL;
 
 	mapa_create_personaje(self->mapa, id_personaje);
 	return personaje;
@@ -327,6 +334,8 @@ void nivel_mover_personaje(nivel_t_nivel* self, t_posicion* posicion,
 
 	nivel_t_personaje* personaje = list_find(self->personajes,
 			(void*) is_personaje);
+
+	nivel_desbloquear_personaje(personaje);
 
 	int distancia = posicion_get_distancia(personaje->posicion, posicion);
 
@@ -492,7 +501,9 @@ void nivel_asignar_recurso(nivel_t_nivel* self, t_posicion* posicion,
 	} else {
 		nivel_loguear(log_info, self, "Recursos %s insuficientes, bloqueando",
 				el_recurso->nombre);
-		//TODO: Acá se bloquea un personaje... no se si @demian tenés que hacer algo más
+
+		nivel_bloquear_personaje(el_personaje, el_recurso);
+
 		mensaje_create_and_send(M_SOLICITUD_RECURSO_RESPONSE_BLOCKED,
 				string_duplicate(el_recurso->nombre),
 				strlen(el_recurso->nombre) + 1, client);
@@ -535,4 +546,16 @@ void nivel_liberar_recursos(nivel_t_nivel* self, t_list* recursos) {
 
 	list_iterate(recursos, (void *) liberar_recurso);
 	//TODO: ver si hay que dibujar algo en el mapa
+}
+
+void nivel_bloquear_personaje(nivel_t_personaje* personaje, t_recurso* recurso){
+	nivel_desbloquear_personaje(personaje);
+	personaje->simbolo_recurso_esperado = string_from_format("%c", recurso->simbolo);
+}
+
+void nivel_desbloquear_personaje(nivel_t_personaje* personaje){
+	if(personaje->simbolo_recurso_esperado != NULL){
+		free(personaje->simbolo_recurso_esperado);
+		personaje->simbolo_recurso_esperado = NULL;
+	}
 }
