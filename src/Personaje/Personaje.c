@@ -550,9 +550,6 @@ t_mensaje* solicitar_recurso(t_personaje* self) {
 	t_mensaje* recurso_response = mensaje_recibir(
 			self->nivel_actual->socket_nivel);
 
-	if (recurso_response == NULL ) {
-		return NULL ;
-	}
 	return recurso_response;
 
 }

@@ -504,6 +504,13 @@ void nivel_asignar_recurso(nivel_t_nivel* self, t_posicion* posicion,
 		return;
 	}
 
+	if (!posicion_equals(el_personaje->posicion, el_recurso->posicion)) {
+		char* msg = "No estás ahí, no quieras hacer trampa";
+		mensaje_create_and_send(M_ERROR, msg, strlen(msg) + 1, client);
+		free(msg);
+		return;
+	}
+
 	if (el_recurso->cantidad > 0) {
 		asignar_recurso_a_personaje(self, el_personaje, el_recurso);
 		el_recurso->cantidad--;
