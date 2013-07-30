@@ -13,6 +13,7 @@
 #include "Orquestador.h"
 #include "../../common/list.h"
 #include "../Planificador/Planificador.h"
+#include "../../common/common_structs.h"
 
 #define PUERTO_ORQUESTADOR 5000
 
@@ -127,6 +128,15 @@ void process_request(t_mensaje* request, t_socket_client* client,
 				"Orquestador: El personaje en el socket %d ha finalizado el nivel",
 				client->socket->desc);
 		pthread_mutex_unlock(&plataforma->logger_mutex);
+	} else if (request->type == M_RECURSOS_LIBERADOS) {
+		orquestador_liberar_recursos(plataforma, client,
+				string_duplicate((char*) request->payload));
+//		pthread_mutex_lock(&plataforma->logger_mutex);
+//		log_info(plataforma->logger,
+//				"Orquestador: El personaje en el socket %d ha finalizado el nivel",
+//				client->socket->desc);
+//		pthread_mutex_unlock(&plataforma->logger_mutex);
+
 	} else {
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_warning(plataforma->logger,
@@ -264,4 +274,63 @@ void verificar_nivel_desconectado(t_plataforma* plataforma,
 		pthread_mutex_unlock(&plataforma->logger_mutex);
 	}
 
+}
+
+void orquestador_liberar_recursos(t_plataforma* plataforma,
+		t_socket_client* client, char* recursos_str) {
+
+	t_list* recursos_liberados = parsear_recursos(recursos_str);
+	char* recursos_asignados = string_new();
+
+	bool es_el_nivel(plataforma_t_nivel* elem) {
+		return sockets_equalsClients(client, elem->socket_nivel);
+	}
+
+	plataforma_t_nivel* nivel = list_find(plataforma->niveles,
+			(void*) es_el_nivel);
+
+	void liberar_recurso(t_recurso* elem) {
+		int i;
+		for (i = 0; i < elem->cantidad; i++) {
+			planificador_t_personaje* personaje_desbloqueado =
+					planificador_recurso_liberado(plataforma,
+							nivel->planificador, elem->simbolo);
+			if (personaje_desbloqueado != NULL ) {
+				char* asignacion = string_from_format("%c%c,",
+						personaje_desbloqueado->simbolo, elem->simbolo);
+				string_append(&recursos_asignados,
+						string_duplicate(asignacion));
+				free(asignacion);
+			}
+		}
+	}
+
+	list_iterate(recursos_liberados, (void*) liberar_recurso);
+
+	list_destroy_and_destroy_elements(recursos_liberados,
+			(void*) recurso_destroy);
+
+	mensaje_create_and_send(M_RECURSOS_ASIGNADOS,
+			string_duplicate(recursos_asignados),
+			strlen(recursos_asignados) + 1, client);
+	free(recursos_asignados);
+	free(recursos_str);
+}
+
+t_list* parsear_recursos(char* recursos_str) {
+	t_list* recursos = list_create();
+	char* recursos_str2 = string_substring(recursos_str, 0,
+			strlen(recursos_str) - 1);
+	char** recursos_arr = string_split(recursos_str2, ",");
+	int index = 0;
+	while (recursos_arr[index] != NULL ) {
+		char* recurso = recursos_arr[index];
+		list_add(recursos,
+				recurso_create(NULL, recurso[0], atoi(recurso + 1), NULL ));
+		index++;
+	}
+
+	array_destroy(recursos_arr);
+	free(recursos_str2);
+	return recursos;
 }

@@ -423,3 +423,17 @@ void planificador_reload_config(t_planificador* self, t_socket_client* client,
 			self->quantum_total, self->tiempo_sleep);
 	pthread_mutex_unlock(&plataforma->logger_mutex);
 }
+
+planificador_t_personaje* planificador_recurso_liberado(
+		t_plataforma* plataforma, t_planificador* self, char simbolo) {
+
+	pthread_mutex_lock(&plataforma->logger_mutex);
+	log_debug(plataforma->logger, "%s: Recurso para liberar: %c",
+			self->log_name, simbolo);
+	pthread_mutex_unlock(&plataforma->logger_mutex);
+	//TODO Sacar de la cola de bloqueados, pasar a ready, etc
+	//TODO
+
+	return NULL ;
+
+}

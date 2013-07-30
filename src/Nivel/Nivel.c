@@ -229,6 +229,10 @@ bool nivel_process_request(nivel_t_nivel* self, t_mensaje* request,
 	case M_FIN_DE_NIVEL:
 		verificar_personaje_desconectado(self, client, true);
 		break;
+	case M_RECURSOS_ASIGNADOS:
+		nivel_asigar_recursos_liberados(self,
+				string_duplicate((char*) request->payload), client);
+		break;
 	default: {
 		char* error_msg = string_from_format(
 				"Tipo del mensaje recibido no valido tipo: %d", request->type);
@@ -548,6 +552,7 @@ void asignar_recurso_a_personaje(nivel_t_nivel* self,
 }
 
 void nivel_liberar_recursos(nivel_t_nivel* self, t_list* recursos) {
+	t_list* recursos_liberados = list_create();
 
 	void liberar_recurso(t_recurso* recurso) {
 		bool es_el_recurso(t_recurso* elem) {
@@ -560,13 +565,17 @@ void nivel_liberar_recursos(nivel_t_nivel* self, t_list* recursos) {
 		nivel_loguear(log_info, self,
 				"Se liberaron %d instancias del recurso %s", recurso->cantidad,
 				recurso->nombre);
+		list_add(recursos_liberados, recurso_clone(recurso));
 		my_list_remove_and_destroy_by_condition(recursos, (void*) es_el_recurso,
 				(void*) recurso_destroy);
 	}
 
 	list_iterate(recursos, (void *) liberar_recurso);
 
-	avisar_al_orquestador_que_se_liberaron_recursos(self, recursos);
+	avisar_al_orquestador_que_se_liberaron_recursos(self, recursos_liberados);
+
+	list_destroy_and_destroy_elements(recursos_liberados,
+			(void*) recurso_destroy);
 	//TODO: ver si hay que dibujar algo en el mapa
 }
 
@@ -585,8 +594,32 @@ void nivel_desbloquear_personaje(nivel_t_personaje* personaje) {
 
 void avisar_al_orquestador_que_se_liberaron_recursos(nivel_t_nivel* self,
 		t_list* recursos) {
+	char* recursos_a_liberar = string_new();
+
+	void agregar_recurso(t_recurso* recurso) {
+		char* rec_str = string_from_format("%c%d,", recurso->simbolo,
+				recurso->cantidad);
+		string_append(&recursos_a_liberar, string_duplicate(rec_str));
+		free(rec_str);
+	}
+
+	list_iterate(recursos, (void*) agregar_recurso);
+
+	if (strlen(recursos_a_liberar) > 0) {
+		mensaje_create_and_send(M_RECURSOS_LIBERADOS,
+				string_duplicate(recursos_a_liberar),
+				strlen(recursos_a_liberar) + 1, self->socket_orquestador);
+	}
+	free(recursos_a_liberar);
+}
+
+void nivel_asigar_recursos_liberados(nivel_t_nivel* self,
+		char* recursos_asignados_str, t_socket_client* client) {
+
+	nivel_loguear(log_debug, self, "Recursos para liberar: %s",
+			recursos_asignados_str);
 	//TODO
 	//TODO
 	//TODO
-	//TODO
+
 }

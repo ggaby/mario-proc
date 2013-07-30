@@ -34,5 +34,7 @@ planificador_t_personaje* buscar_personaje_bloqueado(t_planificador* self,
 		t_socket_client* client);
 void remover_de_bloqueados(t_planificador* self,
 		planificador_t_personaje* personaje);
+planificador_t_personaje* planificador_recurso_liberado(
+		t_plataforma* plataforma, t_planificador* self, char simbolo);
 
 #endif /* PLANIFICADOR_H_ */

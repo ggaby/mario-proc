@@ -42,6 +42,8 @@
 #define M_TURNO_FINALIZADO_BLOCKED 48
 #define M_NOTIFICACION_MOVIMIENTO 49
 #define M_FIN_DE_NIVEL 50
+#define M_RECURSOS_LIBERADOS 51
+#define M_RECURSOS_ASIGNADOS 52
 
 //Contenidos de Mensajes
 #define PERSONAJE_HANDSHAKE "Aquí un personaje"

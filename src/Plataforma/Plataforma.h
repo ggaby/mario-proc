@@ -23,6 +23,7 @@ typedef struct {
 } t_orquestador;
 
 typedef struct {
+	char simbolo;
 	t_socket_client* socket;
 	char* tiempo_llegada;
 } planificador_t_personaje;

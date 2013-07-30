@@ -12,7 +12,11 @@
 t_recurso* recurso_create(char* nombre, char simbolo, int cantidad,
 		t_posicion* posicion) {
 	t_recurso* new = malloc(sizeof(t_recurso));
-	new->nombre = string_duplicate(nombre);
+	if (nombre != NULL ) {
+		new->nombre = string_duplicate(nombre);
+	} else {
+		new->nombre = NULL;
+	}
 	new->simbolo = simbolo;
 	new->cantidad = cantidad;
 	new->posicion = posicion;

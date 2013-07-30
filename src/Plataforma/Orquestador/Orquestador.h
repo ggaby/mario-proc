@@ -12,6 +12,7 @@
 #include "../../common/sockets.h"
 #include "../../common/mensaje.h"
 #include <commons/collections/list.h>
+#include "../../common/Recurso.h"
 
 t_orquestador* orquestador_create(int puerto, t_plataforma* plataforma);
 void orquestador_destroy(t_orquestador* self);
@@ -27,5 +28,8 @@ void orquestador_send_error_message(char* error_description,
 		t_socket_client* client);
 void verificar_nivel_desconectado(t_plataforma* plataforma,
 		t_socket_client* client);
+void orquestador_liberar_recursos(t_plataforma* plataforma,
+		t_socket_client* client, char* recursos_str);
+t_list* parsear_recursos(char* recursos_str);
 
 #endif /* ORQUESTADOR_H_ */
