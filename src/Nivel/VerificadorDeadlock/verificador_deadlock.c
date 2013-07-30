@@ -18,7 +18,7 @@ void* verificador_deadlock(void* level) {
 		nivel_loguear(log_info, nivel,
 				"Verificador de Deadlock esperando %d segundos para realizar el checkeo.",
 				nivel->tiempoChequeoDeadlock);
-		sleep(nivel->tiempoChequeoDeadlock);
+		usleep(nivel->tiempoChequeoDeadlock);
 
 		t_list* recursos_disponibles = clonar_recursos(nivel);
 		t_list* personajes_bloqueados = clonar_personajes(nivel);
