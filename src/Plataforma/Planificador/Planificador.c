@@ -115,8 +115,8 @@ t_planificador* planificador_create(t_plataforma* plataforma,
 			PLANIFICADOR_CONFIG_QUANTUM);
 	new->quantum_restante = new->quantum_total;
 
-	new->tiempo_sleep = config_get_int_value(config,
-			PLANIFICADOR_CONFIG_TIEMPO_ESPERA);
+	new->tiempo_sleep = config_get_double_value(config,
+			PLANIFICADOR_CONFIG_TIEMPO_ESPERA)*1000;
 
 	new->personajes_ready = queue_create();
 	new->personajes_blocked = dictionary_create();
@@ -243,7 +243,7 @@ void bloquear_personaje(t_planificador* self, char* recurso) {
  *Envía notificacion de movimiento y consume un Quantum
  */
 void planificador_mover_personaje(t_planificador* self) {
-	sleep(self->tiempo_sleep);
+	usleep(self->tiempo_sleep);
 	self->quantum_restante--;
 
 	if (self->personaje_ejecutando == NULL ) {
@@ -438,8 +438,8 @@ void planificador_reload_config(t_planificador* self, t_socket_client* client,
 		t_config* config = config_create(plataforma->config_path);
 		self->quantum_total = config_get_int_value(config,
 				PLANIFICADOR_CONFIG_QUANTUM);
-		self->tiempo_sleep = config_get_int_value(config,
-				PLANIFICADOR_CONFIG_TIEMPO_ESPERA);
+		self->tiempo_sleep = config_get_double_value(config,
+				PLANIFICADOR_CONFIG_TIEMPO_ESPERA)*1000;
 		config_destroy(config);
 	}
 

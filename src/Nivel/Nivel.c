@@ -124,8 +124,8 @@ nivel_t_nivel* nivel_create(char* config_path) {
 	nivel_t_nivel* new = malloc(sizeof(nivel_t_nivel));
 	t_config* config = config_create(config_path);
 	new->nombre = string_duplicate(config_get_string_value(config, "Nombre"));
-	new->tiempoChequeoDeadlock = config_get_int_value(config,
-			"TiempoChequeoDeadlock");
+	new->tiempoChequeoDeadlock = config_get_double_value(config,
+			"TiempoChequeoDeadlock")*1000;
 	new->recovery = config_get_int_value(config, "Recovery");
 
 	new->orquestador_info = connection_create(
@@ -475,6 +475,13 @@ void nivel_asignar_recurso(nivel_t_nivel* self, t_posicion* posicion,
 		nivel_loguear(log_warning, self,
 				"Parece que el personaje se desconectó solicitando un recurso");
 		verificar_personaje_desconectado(self, client, false);
+		return;
+	}
+
+	if (!posicion_equals(el_personaje->posicion, el_recurso->posicion)) {
+		char* msg = "No estás ahí, no quieras hacer trampa";
+		mensaje_create_and_send(M_ERROR, msg, strlen(msg) + 1, client);
+		free(msg);
 		return;
 	}
 
