@@ -48,7 +48,7 @@ void nivel_get_nombre(nivel_t_nivel* self, t_socket_client* client);
 void nivel_get_posicion_recurso(nivel_t_nivel* self, char* id_recurso,
 		t_socket_client* client);
 void verificar_personaje_desconectado(nivel_t_nivel* self,
-		t_socket_client* client);
+		t_socket_client* client, bool fin_de_nivel);
 void nivel_loguear(void log_fn(t_log*, const char*, ...), nivel_t_nivel* self,
 		const char* message, ...);
 void nivel_create_verificador_deadlock(nivel_t_nivel* self);
@@ -59,5 +59,7 @@ void asignar_recurso_a_personaje(nivel_t_nivel* self,
 		nivel_t_personaje* personaje, t_recurso* recurso);
 void nivel_liberar_recursos(nivel_t_nivel* self, t_list* recursos);
 void nivel_destroy_personaje(nivel_t_personaje* personaje);
+void avisar_al_orquestador_que_se_liberaron_recursos(nivel_t_nivel* self,
+		t_list* recursos);
 
 #endif /* NIVEL_H_ */

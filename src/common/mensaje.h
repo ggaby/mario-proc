@@ -41,7 +41,7 @@
 #define M_TURNO_FINALIZADO_OK 47
 #define M_TURNO_FINALIZADO_BLOCKED 48
 #define M_NOTIFICACION_MOVIMIENTO 49
-
+#define M_FIN_DE_NIVEL 50
 
 //Contenidos de Mensajes
 #define PERSONAJE_HANDSHAKE "Aquí un personaje"

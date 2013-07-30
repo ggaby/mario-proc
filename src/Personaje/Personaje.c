@@ -60,6 +60,8 @@ int main(int argc, char* argv[]) {
 			return EXIT_FAILURE;
 		}
 
+		personaje_avisar_fin_de_nivel(self);
+
 		if (!personaje_get_info_nivel(self)) {
 			personaje_destroy(self);
 			return EXIT_FAILURE;
@@ -100,7 +102,24 @@ int main(int argc, char* argv[]) {
 		nivelIndex++;
 	} //FIN while por cada nivel.
 
-	log_info(self->logger, "Conexión terminada");
+	if (self->plan_de_niveles[nivelIndex] != NULL ) { //terminé todos los niveles
+		//Demian, ya se que está de más, pero me gusta chequearlo al pedo :P
+		if (!personaje_conectar_a_orquestador(self)) {
+			personaje_destroy(self);
+			return EXIT_FAILURE;
+		}
+
+		personaje_avisar_fin_de_nivel(self);
+
+		if (self->socket_orquestador->serv_socket != NULL ) {
+			sockets_destroy(self->socket_orquestador->serv_socket);
+		}
+		sockets_destroyClient(self->socket_orquestador);
+		self->socket_orquestador = NULL;
+
+		log_info(self->logger, "Terminé todos los niveles :)");
+	}
+
 	personaje_destroy(self);
 
 	return EXIT_SUCCESS;
@@ -195,6 +214,7 @@ t_personaje* personaje_create(char* config_path) {
 	new->nivel_actual = NULL;
 	new->posicion = NULL;
 	new->posicion_objetivo = NULL;
+	new->nivel_finalizado = false;
 
 	free(s);
 	free(log_file);
@@ -398,11 +418,8 @@ bool personaje_jugar_nivel(t_personaje* self) {
 		free(objetivo);
 	}
 
-	// Finalice el nivel.
-	//TODO Avisar planificador del fin del nivel y desconectar
-	//TODO Avisar nivel del fin del nivel y desconectar
-	log_info(self->logger, "Personaje %s: finalice nivel %s", self->nombre,
-			self->nivel_actual->nombre);
+	finalizar_nivel(self);
+
 	return true;
 }
 
@@ -538,4 +555,34 @@ t_mensaje* solicitar_recurso(t_personaje* self) {
 	}
 	return recurso_response;
 
+}
+
+void finalizar_nivel(t_personaje* self) {
+	log_info(self->logger, "Personaje %s: finalice nivel %s", self->nombre,
+			self->nivel_actual->nombre);
+	self->nivel_finalizado = true;
+
+	mensaje_create_and_send(M_FIN_DE_NIVEL, NULL, 0,
+			self->nivel_actual->socket_nivel);
+
+	personaje_nivel_destroy(self->nivel_actual);
+
+	if (self->posicion != NULL ) {
+		posicion_destroy(self->posicion);
+		self->posicion = NULL;
+	}
+
+	if (self->posicion_objetivo != NULL ) {
+		posicion_destroy(self->posicion_objetivo);
+		self->posicion_objetivo = NULL;
+	}
+}
+
+void personaje_avisar_fin_de_nivel(t_personaje* self) {
+	if (self->nivel_finalizado) {
+		log_debug(self->logger,
+				"Personaje %s: Avisando al orquestador que terminé el nivel", self->nombre);
+		mensaje_create_and_send(M_FIN_DE_NIVEL, NULL, 0,
+				self->socket_orquestador);
+	}
 }

@@ -121,6 +121,12 @@ void process_request(t_mensaje* request, t_socket_client* client,
 		t_plataforma* plataforma) {
 	if (request->type == M_GET_INFO_NIVEL_REQUEST) {
 		return orquestador_get_info_nivel(request, client, plataforma);
+	} else if (request->type == M_FIN_DE_NIVEL) {
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_info(plataforma->logger,
+				"Orquestador: El personaje en el socket %d ha finalizado el nivel",
+				client->socket->desc);
+		pthread_mutex_unlock(&plataforma->logger_mutex);
 	} else {
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_warning(plataforma->logger,

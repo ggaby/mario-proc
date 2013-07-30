@@ -24,7 +24,6 @@ void nivel_mover_personaje(nivel_t_nivel* self, t_posicion* posicion,
 void nivel_bloquear_personaje(nivel_t_personaje* personaje, t_recurso* recurso);
 void nivel_desbloquear_personaje(nivel_t_personaje* personaje);
 
-
 int main(int argc, char *argv[]) {
 
 	if (!verificar_argumentos(argc, argv)) {
@@ -91,7 +90,7 @@ int main(int argc, char *argv[]) {
 
 		if (mensaje == NULL ) {
 			nivel_loguear(log_warning, self, "Mensaje recibido NULL.");
-			verificar_personaje_desconectado(self, client);
+			verificar_personaje_desconectado(self, client, false);
 			return false;
 		}
 
@@ -202,7 +201,7 @@ void nivel_destroy(nivel_t_nivel* self) {
 }
 
 void nivel_destroy_personaje(nivel_t_personaje* personaje) {
-	if(personaje->posicion != NULL){
+	if (personaje->posicion != NULL ) {
 		posicion_destroy(personaje->posicion);
 	}
 	nivel_desbloquear_personaje(personaje);
@@ -226,6 +225,9 @@ bool nivel_process_request(nivel_t_nivel* self, t_mensaje* request,
 		break;
 	case M_SOLICITUD_RECURSO_REQUEST:
 		nivel_asignar_recurso(self, (t_posicion*) request->payload, client);
+		break;
+	case M_FIN_DE_NIVEL:
+		verificar_personaje_desconectado(self, client, true);
 		break;
 	default: {
 		char* error_msg = string_from_format(
@@ -404,7 +406,7 @@ void nivel_create_grafica_recurso(nivel_t_nivel* self, t_recurso* recurso) {
 }
 
 void verificar_personaje_desconectado(nivel_t_nivel* self,
-		t_socket_client* client) {
+		t_socket_client* client, bool fin_de_nivel) {
 
 	bool es_el_personaje(nivel_t_personaje* elem) {
 		return sockets_equalsClients(client, elem->socket);
@@ -414,13 +416,22 @@ void verificar_personaje_desconectado(nivel_t_nivel* self,
 			(void*) es_el_personaje);
 
 	if (personaje_desconectado != NULL ) {
-		nivel_loguear(log_warning, self, "El personaje %c se ha desconectado",
-				personaje_desconectado->id);
+		if (fin_de_nivel) {
+			nivel_loguear(log_warning, self,
+					"El personaje %c se ha terminado el nivel",
+					personaje_desconectado->id);
+		} else {
+			nivel_loguear(log_warning, self,
+					"El personaje %c se ha desconectado",
+					personaje_desconectado->id);
+		}
 		nivel_liberar_recursos(self,
 				personaje_desconectado->recursos_asignados);
 		mapa_borrar_item(self->mapa, personaje_desconectado->id);
-		my_list_remove_and_destroy_by_condition(self->personajes,
-				(void*) es_el_personaje, (void*) nivel_destroy_personaje);
+		if (!fin_de_nivel) {
+			my_list_remove_and_destroy_by_condition(self->personajes,
+					(void*) es_el_personaje, (void*) nivel_destroy_personaje);
+		}
 	}
 
 }
@@ -489,7 +500,7 @@ void nivel_asignar_recurso(nivel_t_nivel* self, t_posicion* posicion,
 	if (el_personaje == NULL ) {
 		nivel_loguear(log_warning, self,
 				"Parece que el personaje se desconectó solicitando un recurso");
-		verificar_personaje_desconectado(self, client);
+		verificar_personaje_desconectado(self, client, false);
 		return;
 	}
 
@@ -542,20 +553,33 @@ void nivel_liberar_recursos(nivel_t_nivel* self, t_list* recursos) {
 		nivel_loguear(log_info, self,
 				"Se liberaron %d instancias del recurso %s", recurso->cantidad,
 				recurso->nombre);
+		my_list_remove_and_destroy_by_condition(recursos, (void*) es_el_recurso,
+				(void*) recurso_destroy);
 	}
 
 	list_iterate(recursos, (void *) liberar_recurso);
+
+	avisar_al_orquestador_que_se_liberaron_recursos(self, recursos);
 	//TODO: ver si hay que dibujar algo en el mapa
 }
 
-void nivel_bloquear_personaje(nivel_t_personaje* personaje, t_recurso* recurso){
+void nivel_bloquear_personaje(nivel_t_personaje* personaje, t_recurso* recurso) {
 	nivel_desbloquear_personaje(personaje);
-	personaje->simbolo_recurso_esperado = string_from_format("%c", recurso->simbolo);
+	personaje->simbolo_recurso_esperado = string_from_format("%c",
+			recurso->simbolo);
 }
 
-void nivel_desbloquear_personaje(nivel_t_personaje* personaje){
-	if(personaje->simbolo_recurso_esperado != NULL){
+void nivel_desbloquear_personaje(nivel_t_personaje* personaje) {
+	if (personaje->simbolo_recurso_esperado != NULL ) {
 		free(personaje->simbolo_recurso_esperado);
 		personaje->simbolo_recurso_esperado = NULL;
 	}
+}
+
+void avisar_al_orquestador_que_se_liberaron_recursos(nivel_t_nivel* self,
+		t_list* recursos) {
+	//TODO
+	//TODO
+	//TODO
+	//TODO
 }

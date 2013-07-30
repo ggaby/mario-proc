@@ -37,6 +37,7 @@ typedef struct {
 	t_personaje_nivel* nivel_actual;
 	t_posicion* posicion;
 	t_posicion* posicion_objetivo;
+	bool nivel_finalizado;
 } t_personaje;
 
 t_personaje* personaje_create(char* config_path);
@@ -55,5 +56,7 @@ bool realizar_movimiento(t_personaje* self);
 bool mover_en_nivel(t_personaje* self);
 bool finalizar_turno(t_personaje* self, char* objetivo);
 t_mensaje* solicitar_recurso(t_personaje* self);
+void finalizar_nivel(t_personaje* self);
+void personaje_avisar_fin_de_nivel(t_personaje* self);
 
 #endif /* PERSONAJE_H_ */
