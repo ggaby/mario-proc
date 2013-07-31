@@ -589,6 +589,7 @@ void finalizar_nivel(t_personaje* self) {
 			self->nivel_actual->socket_nivel);
 
 	personaje_nivel_destroy(self->nivel_actual);
+	self->nivel_actual = NULL;
 
 	if (self->posicion != NULL ) {
 		posicion_destroy(self->posicion);
