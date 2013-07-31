@@ -125,7 +125,7 @@ nivel_t_nivel* nivel_create(char* config_path) {
 	t_config* config = config_create(config_path);
 	new->nombre = string_duplicate(config_get_string_value(config, "Nombre"));
 	new->tiempoChequeoDeadlock = config_get_double_value(config,
-			"TiempoChequeoDeadlock")*1000000;
+			"TiempoChequeoDeadlock") * 1000000;
 	new->recovery = config_get_int_value(config, "Recovery");
 
 	new->orquestador_info = connection_create(
@@ -231,7 +231,7 @@ bool nivel_process_request(nivel_t_nivel* self, t_mensaje* request,
 		verificar_personaje_desconectado(self, client, true);
 		break;
 	case M_RECURSOS_ASIGNADOS:
-		nivel_asigar_recursos_liberados(self,
+		nivel_asignar_recursos_liberados(self,
 				string_duplicate((char*) request->payload), client);
 		break;
 	default: {
@@ -492,7 +492,8 @@ void nivel_asignar_recurso(nivel_t_nivel* self, t_posicion* posicion,
 	if (el_recurso->cantidad > 0) {
 		asignar_recurso_a_personaje(self, el_personaje, el_recurso);
 		el_recurso->cantidad--;
-		mapa_update_recurso(self->mapa, el_recurso->simbolo, el_recurso->cantidad);
+		mapa_update_recurso(self->mapa, el_recurso->simbolo,
+				el_recurso->cantidad);
 		mensaje_create_and_send(M_SOLICITUD_RECURSO_RESPONSE_OK, NULL, 0,
 				client);
 	} else {
@@ -540,7 +541,8 @@ void nivel_liberar_recursos(nivel_t_nivel* self, t_list* recursos) {
 		nivel_loguear(log_info, self,
 				"Se liberaron %d instancias del recurso %s", recurso->cantidad,
 				recurso->nombre);
-		mapa_update_recurso(self->mapa, mi_recurso->simbolo, mi_recurso->cantidad);
+		mapa_update_recurso(self->mapa, mi_recurso->simbolo,
+				mi_recurso->cantidad);
 		list_add(recursos_liberados, recurso_clone(recurso));
 		my_list_remove_and_destroy_by_condition(recursos, (void*) es_el_recurso,
 				(void*) recurso_destroy);
@@ -588,13 +590,59 @@ void avisar_al_orquestador_que_se_liberaron_recursos(nivel_t_nivel* self,
 	free(recursos_a_liberar);
 }
 
-void nivel_asigar_recursos_liberados(nivel_t_nivel* self,
+void nivel_asignar_recursos_liberados(nivel_t_nivel* self,
 		char* recursos_asignados_str, t_socket_client* client) {
 
-	nivel_loguear(log_debug, self, "Recursos para liberar: %s",
+	nivel_loguear(log_debug, self, "Recursos para asignar: %s",
 			recursos_asignados_str);
-	//TODO
-	//TODO
-	//TODO
 
+	if (strlen(recursos_asignados_str) < 2) {
+		return;
+	}
+	char** asignaciones = parsear_recursos_asignados(recursos_asignados_str);
+
+	void buscar_y_asignar(char* asignacion) {
+
+		bool es_el_personaje(nivel_t_personaje* elem) {
+			return elem->id == asignacion[0];
+		}
+
+		bool es_el_recurso(t_recurso* elem) {
+			return asignacion[1] == elem->simbolo;
+		}
+
+		nivel_t_personaje* el_personaje = list_find(self->personajes,
+				(void*) es_el_personaje);
+		t_recurso* el_recurso = list_find(self->recursos,
+				(void*) es_el_recurso);
+
+		if (el_personaje != NULL && el_recurso != NULL ) {
+			asignar_recurso_a_personaje(self, el_personaje, el_recurso);
+			el_recurso->cantidad--;
+			mapa_update_recurso(self->mapa, el_recurso->simbolo,
+					el_recurso->cantidad);
+
+			if ((el_personaje->simbolo_recurso_esperado == NULL ) ||
+			(el_personaje->simbolo_recurso_esperado[0] != el_recurso->simbolo)){
+
+			nivel_loguear(log_debug, self,
+					"Algo raro pasó, porque el personaje no estaba bloqueado");
+
+		}
+			nivel_desbloquear_personaje(el_personaje);
+			nivel_loguear(log_debug, self,
+					"Se asigno 1 instancias del recurso %s al persoanje %c",
+					el_recurso->nombre, el_personaje->id);
+		}
+
+	}
+
+	string_iterate_lines(asignaciones, (void*) buscar_y_asignar);
+	array_destroy(asignaciones);
+}
+
+char** parsear_recursos_asignados(char* recursos_str) {
+	char* recursos_str2 = string_substring(recursos_str, 0,
+			strlen(recursos_str) - 1);
+	return string_split(recursos_str2, ",");
 }

@@ -60,7 +60,8 @@ void nivel_liberar_recursos(nivel_t_nivel* self, t_list* recursos);
 void nivel_destroy_personaje(nivel_t_personaje* personaje);
 void avisar_al_orquestador_que_se_liberaron_recursos(nivel_t_nivel* self,
 		t_list* recursos);
-void nivel_asigar_recursos_liberados(nivel_t_nivel* self,
+void nivel_asignar_recursos_liberados(nivel_t_nivel* self,
 		char* recursos_asignados_str, t_socket_client* client);
+char** parsear_recursos_asignados(char* recursos_str);
 
 #endif /* NIVEL_H_ */
