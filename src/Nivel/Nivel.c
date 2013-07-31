@@ -492,6 +492,7 @@ void nivel_asignar_recurso(nivel_t_nivel* self, t_posicion* posicion,
 	if (el_recurso->cantidad > 0) {
 		asignar_recurso_a_personaje(self, el_personaje, el_recurso);
 		el_recurso->cantidad--;
+		mapa_update_recurso(self->mapa, el_recurso->simbolo, el_recurso->cantidad);
 		mensaje_create_and_send(M_SOLICITUD_RECURSO_RESPONSE_OK, NULL, 0,
 				client);
 	} else {
@@ -539,6 +540,7 @@ void nivel_liberar_recursos(nivel_t_nivel* self, t_list* recursos) {
 		nivel_loguear(log_info, self,
 				"Se liberaron %d instancias del recurso %s", recurso->cantidad,
 				recurso->nombre);
+		mapa_update_recurso(self->mapa, mi_recurso->simbolo, mi_recurso->cantidad);
 		list_add(recursos_liberados, recurso_clone(recurso));
 		my_list_remove_and_destroy_by_condition(recursos, (void*) es_el_recurso,
 				(void*) recurso_destroy);
@@ -550,7 +552,6 @@ void nivel_liberar_recursos(nivel_t_nivel* self, t_list* recursos) {
 
 	list_destroy_and_destroy_elements(recursos_liberados,
 			(void*) recurso_destroy);
-	//TODO: ver si hay que dibujar algo en el mapa
 }
 
 void nivel_bloquear_personaje(nivel_t_personaje* personaje, t_recurso* recurso) {

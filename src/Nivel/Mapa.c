@@ -40,7 +40,7 @@ void mapa_create_caja_recurso(t_mapa* self, char id_caja, int posx, int posy, in
 	mapa_createItem(&self->items, id_caja, posx, posy, RECURSO_ITEM_TYPE, cantidad);
 }
 
-void mapa_restar_recurso(t_mapa* self, char id_caja){
+void mapa_update_recurso(t_mapa* self, char id_caja, int cantidad){
 	ITEM_NIVEL * temp;
 	temp = self->items;
 
@@ -49,8 +49,8 @@ void mapa_restar_recurso(t_mapa* self, char id_caja){
 	}
 
 	if ((temp != NULL) && (temp->id == id_caja)) {
-		if ((temp->item_type == RECURSO_ITEM_TYPE) && (temp->quantity > 0)) { //TODO las condisiones se pueden meter en el if de arriba.
-			temp->quantity--;
+		if ((temp->item_type == RECURSO_ITEM_TYPE)) { //TODO las condisiones se pueden meter en el if de arriba.
+			temp->quantity = cantidad;
 		}
 	}
 }
