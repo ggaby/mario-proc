@@ -116,7 +116,7 @@ t_planificador* planificador_create(t_plataforma* plataforma,
 	new->quantum_restante = new->quantum_total;
 
 	new->tiempo_sleep = config_get_double_value(config,
-			PLANIFICADOR_CONFIG_TIEMPO_ESPERA)*1000000;
+			PLANIFICADOR_CONFIG_TIEMPO_ESPERA) * 1000000;
 
 	new->personajes_ready = queue_create();
 	new->personajes_blocked = dictionary_create();
@@ -343,7 +343,7 @@ planificador_t_personaje* buscar_personaje_bloqueado_by_socket(
 		return sockets_equalsClients(client, elem->socket);
 	}
 
-	return buscar_personaje_bloqueado(self, (void*)tiene_el_mismo_socket);
+	return buscar_personaje_bloqueado(self, (void*) tiene_el_mismo_socket);
 }
 
 planificador_t_personaje* buscar_personaje_bloqueado_by_id(t_planificador* self,
@@ -353,7 +353,7 @@ planificador_t_personaje* buscar_personaje_bloqueado_by_id(t_planificador* self,
 		return elem->id == id;
 	}
 
-	return buscar_personaje_bloqueado(self, (void*)tiene_el_mismo_id);
+	return buscar_personaje_bloqueado(self, (void*) tiene_el_mismo_id);
 }
 
 planificador_t_personaje* buscar_personaje_bloqueado(t_planificador* self,
@@ -447,7 +447,7 @@ void planificador_reload_config(t_planificador* self, t_socket_client* client,
 		self->quantum_total = config_get_int_value(config,
 				PLANIFICADOR_CONFIG_QUANTUM);
 		self->tiempo_sleep = config_get_double_value(config,
-				PLANIFICADOR_CONFIG_TIEMPO_ESPERA)*1000000;
+				PLANIFICADOR_CONFIG_TIEMPO_ESPERA) * 1000000;
 		config_destroy(config);
 	}
 
@@ -465,9 +465,31 @@ planificador_t_personaje* planificador_recurso_liberado(
 	log_debug(plataforma->logger, "%s: Recurso para liberar: %c",
 			self->log_name, simbolo);
 	pthread_mutex_unlock(&plataforma->logger_mutex);
-	//TODO Sacar de la cola de bloqueados, pasar a ready, etc
-	//TODO
 
-	return NULL ;
+	char key[2] = "";
+	key[0] = simbolo;
+	key[1] = '\0';
 
+	t_queue* cola_bloqueados = dictionary_get(self->personajes_blocked, key);
+
+	if (cola_bloqueados != NULL ) {
+		planificador_t_personaje* personaje_desbloqueado = queue_pop(
+				cola_bloqueados);
+
+		if (personaje_desbloqueado != NULL ) {
+			queue_push(self->personajes_ready, personaje_desbloqueado);
+
+			pthread_mutex_lock(&plataforma->logger_mutex);
+			log_debug(plataforma->logger, "%s: Personaje liberado: %c",
+					self->log_name, personaje_desbloqueado->id);
+			pthread_mutex_unlock(&plataforma->logger_mutex);
+
+			if (!planificador_esta_procesando(self)) {
+				planificador_mover_personaje(self);
+			}
+		}
+
+		return personaje_desbloqueado;
+	}
+	return NULL;
 }
