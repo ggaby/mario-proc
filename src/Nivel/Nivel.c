@@ -123,8 +123,8 @@ nivel_t_nivel* nivel_create(char* config_path) {
 	nivel_t_nivel* new = malloc(sizeof(nivel_t_nivel));
 	t_config* config = config_create(config_path);
 	new->nombre = string_duplicate(config_get_string_value(config, "Nombre"));
-	new->tiempoChequeoDeadlock = config_get_int_value(config,
-			"TiempoChequeoDeadlock");
+	new->tiempoChequeoDeadlock = config_get_double_value(config,
+			"TiempoChequeoDeadlock")*1000;
 	new->recovery = config_get_int_value(config, "Recovery");
 
 	new->orquestador_info = connection_create(
