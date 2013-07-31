@@ -42,6 +42,7 @@ typedef struct {
 	char* log_name;
 	//Otro alto hack: Lo meto en un socket para meterlo al select ;)
 	t_socket_client* inotify_fd_wrapper;
+	pthread_mutex_t planificador_mutex;
 } t_planificador;
 
 typedef struct {

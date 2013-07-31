@@ -44,8 +44,7 @@
 #define M_FIN_DE_NIVEL 50
 #define M_RECURSOS_LIBERADOS 51
 #define M_RECURSOS_ASIGNADOS 52
-
-#define M_DEADLOCK_DETECTADO 51
+#define M_DEADLOCK_DETECTADO 53
 
 //Contenidos de Mensajes
 #define PERSONAJE_HANDSHAKE "Aquí un personaje"

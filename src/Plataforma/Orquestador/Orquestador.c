@@ -301,7 +301,7 @@ void orquestador_handler_deadlock(char* ids_personajes_en_deadlock,
 		planificador_t_personaje* el_personaje =
 				buscar_personaje_bloqueado_by_id(nivel->planificador, id[0]);
 
-		if(el_personaje != NULL){
+		if (el_personaje != NULL ) {
 			list_add(personajes, el_personaje);
 		}
 	}
@@ -309,17 +309,16 @@ void orquestador_handler_deadlock(char* ids_personajes_en_deadlock,
 	string_iterate_lines(ids, (void*) buscar_y_agregar_en_lista);
 	array_destroy(ids);
 
-	bool comparator(planificador_t_personaje* p1, planificador_t_personaje* p2){
+	bool comparator(planificador_t_personaje* p1, planificador_t_personaje* p2) {
 		return strcmp(p1->tiempo_llegada, p2->tiempo_llegada) == -1;
 	}
 
-	list_sort(personajes, (void*)comparator);
+	list_sort(personajes, (void*) comparator);
 
 	planificador_t_personaje* victima = list_get(personajes, 0);
 
 	pthread_mutex_lock(&plataforma->logger_mutex);
-	log_info(plataforma->logger,
-			"Orquestador: victima: %c", victima->id);
+	log_info(plataforma->logger, "Orquestador: victima: %c", victima->id);
 	pthread_mutex_unlock(&plataforma->logger_mutex);
 
 }
@@ -345,7 +344,7 @@ void orquestador_liberar_recursos(t_plataforma* plataforma,
 							nivel->planificador, elem->simbolo);
 			if (personaje_desbloqueado != NULL ) {
 				char* asignacion = string_from_format("%c%c,",
-						personaje_desbloqueado->simbolo, elem->simbolo);
+						personaje_desbloqueado->id, elem->simbolo);
 				string_append(&recursos_asignados,
 						string_duplicate(asignacion));
 				free(asignacion);
@@ -353,7 +352,9 @@ void orquestador_liberar_recursos(t_plataforma* plataforma,
 		}
 	}
 
+	pthread_mutex_lock(&nivel->planificador->planificador_mutex);
 	list_iterate(recursos_liberados, (void*) liberar_recurso);
+	pthread_mutex_unlock(&nivel->planificador->planificador_mutex);
 
 	list_destroy_and_destroy_elements(recursos_liberados,
 			(void*) recurso_destroy);
