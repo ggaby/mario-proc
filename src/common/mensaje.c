@@ -223,3 +223,42 @@ void responder_handshake(t_socket_client* client, t_log* logger,
 	mensaje_send(mensaje, client);
 	mensaje_destroy(mensaje);
 }
+
+char* mensaje_get_simbolo_personaje(t_socket_client* socket_personaje,
+		t_log* logger, pthread_mutex_t* log_mutex) {
+	t_mensaje* mensaje = mensaje_create(M_GET_SYMBOL_PERSONAJE_REQUEST);
+	mensaje_send(mensaje, socket_personaje);
+	mensaje_destroy(mensaje);
+
+	mensaje = mensaje_recibir(socket_personaje);
+
+	if (mensaje == NULL ) {
+		sockets_destroyClient(socket_personaje);
+		if (log_mutex != NULL ) {
+			pthread_mutex_lock(log_mutex);
+		}
+		log_warning(logger, "Error al recibir el símbolo del personaje.");
+		if (log_mutex != NULL ) {
+			pthread_mutex_unlock(log_mutex);
+		}
+		return NULL ;
+	}
+
+	if (mensaje->type != M_GET_SYMBOL_PERSONAJE_RESPONSE) {
+		mensaje_destroy(mensaje);
+		sockets_destroyClient(socket_personaje);
+
+		if (log_mutex != NULL ) {
+			pthread_mutex_lock(log_mutex);
+		}
+		log_warning(logger, "Error recibiendo data del personaje.");
+		if (log_mutex != NULL ) {
+			pthread_mutex_unlock(log_mutex);
+		}
+		return NULL ;
+	}
+
+	char* simbolo = string_duplicate((char*) mensaje->payload);
+	mensaje_destroy(mensaje);
+	return simbolo;
+}

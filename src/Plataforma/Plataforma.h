@@ -23,7 +23,7 @@ typedef struct {
 } t_orquestador;
 
 typedef struct {
-	char simbolo;
+	char id;
 	t_socket_client* socket;
 	char* tiempo_llegada;
 } planificador_t_personaje;
@@ -72,6 +72,7 @@ void plataforma_destroy(t_plataforma* self);
 int plataforma_create_nivel(t_plataforma* self, char* nombre_nivel,
 		t_socket_client* socket_nivel, char* planificador_connection_info);
 void plataforma_nivel_destroy(plataforma_t_nivel* nivel);
-plataforma_t_nivel* plataforma_get_nivel(t_plataforma* self, char* nombre_nivel);
+plataforma_t_nivel* plataforma_get_nivel_by_nombre(t_plataforma* self, char* nombre_nivel);
+plataforma_t_nivel* plataforma_get_nivel_by_socket(t_plataforma* self, t_socket_client* socket_nivel);
 
 #endif /* PLATAFORMA_H_ */

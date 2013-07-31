@@ -116,7 +116,7 @@ void plataforma_nivel_destroy(plataforma_t_nivel* nivel) {
 	free(nivel);
 }
 
-plataforma_t_nivel* plataforma_get_nivel(t_plataforma* self, char* nombre_nivel) {
+plataforma_t_nivel* plataforma_get_nivel_by_nombre(t_plataforma* self, char* nombre_nivel) {
 	bool mismo_nombre(plataforma_t_nivel* elem) {
 		return string_equals_ignore_case(elem->nombre, nombre_nivel);
 	}
@@ -130,4 +130,12 @@ bool verificar_argumentos(int argc, char* argv[]) {
 		return false;
 	}
 	return true;
+}
+
+plataforma_t_nivel* plataforma_get_nivel_by_socket(t_plataforma* self, t_socket_client* socket_nivel) {
+	bool mismo_socket(plataforma_t_nivel* elem) {
+		return sockets_equalsClients(elem->socket_nivel, socket_nivel);
+	}
+
+	return list_find(self->niveles, (void*) mismo_socket);
 }

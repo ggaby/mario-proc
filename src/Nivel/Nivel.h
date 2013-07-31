@@ -52,7 +52,6 @@ void verificar_personaje_desconectado(nivel_t_nivel* self,
 void nivel_loguear(void log_fn(t_log*, const char*, ...), nivel_t_nivel* self,
 		const char* message, ...);
 void nivel_create_verificador_deadlock(nivel_t_nivel* self);
-char* get_simbolo_personaje(nivel_t_nivel* self, t_socket_client* client);
 void nivel_asignar_recurso(nivel_t_nivel* self, t_posicion* posicion,
 		t_socket_client* client);
 void asignar_recurso_a_personaje(nivel_t_nivel* self,

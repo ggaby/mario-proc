@@ -44,11 +44,11 @@ void* planificador(void* args) {
 
 		mensaje_destroy(mensaje);
 
-		queue_push(self->personajes_ready,
-				planificador_personaje_create(client));
-
 		responder_handshake(client, plataforma->logger,
 				&plataforma->logger_mutex, self->log_name);
+
+		queue_push(self->personajes_ready,
+				planificador_personaje_create(client, plataforma));
 
 		if (!planificador_esta_procesando(self)) {
 			planificador_mover_personaje(self);
@@ -127,7 +127,7 @@ t_planificador* planificador_create(t_plataforma* plataforma,
 
 	config_destroy(config);
 
-	plataforma_t_nivel* mi_nivel = plataforma_get_nivel(plataforma,
+	plataforma_t_nivel* mi_nivel = plataforma_get_nivel_by_nombre(plataforma,
 			nombre_nivel);
 	mi_nivel->planificador = new;
 
@@ -167,11 +167,20 @@ void planificador_personaje_destroy(planificador_t_personaje* self) {
 	free(self);
 }
 
-planificador_t_personaje* planificador_personaje_create(t_socket_client* socket) {
+planificador_t_personaje* planificador_personaje_create(t_socket_client* socket,
+		t_plataforma* plataforma) {
+
 	planificador_t_personaje* new = malloc(sizeof(planificador_t_personaje));
+	char* id = mensaje_get_simbolo_personaje(socket, plataforma->logger,
+			&plataforma->logger_mutex);
+	new->id = id[0];
+	free(id);
+
 	new->socket = socket;
 	new->tiempo_llegada = temporal_get_string_time();
+
 	return new;
+
 }
 
 bool planificador_esta_procesando(t_planificador* self) {
@@ -283,7 +292,8 @@ void verificar_personaje_desconectado(t_planificador* self,
 				self->personajes_ready->elements, (void*) es_el_personaje,
 				(void*) planificador_personaje_destroy);
 	} else {
-		personaje_desconectado = buscar_personaje_bloqueado(self, client);
+		personaje_desconectado = buscar_personaje_bloqueado_by_socket(self,
+				client);
 		if (personaje_desconectado != NULL ) {
 			pthread_mutex_lock(&plataforma->logger_mutex);
 			log_warning(plataforma->logger,
@@ -318,8 +328,28 @@ void verificar_personaje_desconectado(t_planificador* self,
 	pthread_mutex_unlock(&plataforma->logger_mutex);
 }
 
+planificador_t_personaje* buscar_personaje_bloqueado_by_socket(
+		t_planificador* self, t_socket_client* client) {
+
+	bool tiene_el_mismo_socket(planificador_t_personaje* elem) {
+		return sockets_equalsClients(client, elem->socket);
+	}
+
+	return buscar_personaje_bloqueado(self, (void*)tiene_el_mismo_socket);
+}
+
+planificador_t_personaje* buscar_personaje_bloqueado_by_id(t_planificador* self,
+		char id) {
+
+	bool tiene_el_mismo_id(planificador_t_personaje* elem) {
+		return elem->id == id;
+	}
+
+	return buscar_personaje_bloqueado(self, (void*)tiene_el_mismo_id);
+}
+
 planificador_t_personaje* buscar_personaje_bloqueado(t_planificador* self,
-		t_socket_client* client) {
+		bool condision(void*)) {
 	t_list* colas = list_create();
 
 	//If you know what I mean ;)
@@ -329,13 +359,9 @@ planificador_t_personaje* buscar_personaje_bloqueado(t_planificador* self,
 
 	dictionary_iterator(self->personajes_blocked, (void*) get_cola);
 
-	bool es_el_personaje(planificador_t_personaje* elem) {
-		return sockets_equalsClients(client, elem->socket);
-	}
-
 	bool buscar_la_cola(t_queue* cola) {
 		planificador_t_personaje* el_personaje = list_find(cola->elements,
-				(void*) es_el_personaje);
+				(void*) condision);
 		return el_personaje != NULL ;
 	}
 
@@ -343,7 +369,7 @@ planificador_t_personaje* buscar_personaje_bloqueado(t_planificador* self,
 
 	planificador_t_personaje* el_personaje = NULL;
 	if (la_cola != NULL ) {
-		el_personaje = list_find(la_cola->elements, (void*) es_el_personaje);
+		el_personaje = list_find(la_cola->elements, (void*) condision);
 	}
 
 	free(colas); //Colas gratis o liberen las colas
