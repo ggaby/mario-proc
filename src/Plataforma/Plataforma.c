@@ -13,9 +13,15 @@
 #include <commons/config.h>
 #include "../common/list.h"
 
+bool verificar_argumentos(int argc, char* argv[]);
+
 int main(int argc, char* argv[]) {
 
-	//TODO validar Args
+
+	if (!verificar_argumentos(argc, argv)) {
+			printf("Argumentos inválidos!\n");
+			return EXIT_FAILURE;
+	}
 
 	t_plataforma* plataforma = plataforma_create(argv[1]);
 
@@ -116,4 +122,12 @@ plataforma_t_nivel* plataforma_get_nivel(t_plataforma* self, char* nombre_nivel)
 	}
 
 	return list_find(self->niveles, (void*) mismo_nombre);
+}
+
+bool verificar_argumentos(int argc, char* argv[]) {
+	if (argc < 2) {//TODO: Ver sino seria mas feliz ==
+		printf("Error en la cantidad de argumentos.\n");
+		return false;
+	}
+	return true;
 }
