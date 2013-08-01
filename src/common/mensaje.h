@@ -45,6 +45,7 @@
 #define M_RECURSOS_LIBERADOS 53
 #define M_RECURSOS_ASIGNADOS 54
 #define M_DEADLOCK_DETECTADO 55
+#define M_TURNO_FINALIZADO_SOLICITANDO_RECURSO 56
 
 //Contenidos de Mensajes
 #define PERSONAJE_HANDSHAKE "Aquí un personaje"

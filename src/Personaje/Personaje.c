@@ -543,7 +543,7 @@ bool finalizar_turno(t_personaje* self, char* objetivo) {
 		if (result->type == M_SOLICITUD_RECURSO_RESPONSE_OK) {
 			log_info(self->logger, "Personaje %s: objetivo %s asignado",
 					self->nombre, objetivo);
-			mensaje_create_and_send(M_TURNO_FINALIZADO_OK, NULL, 0,
+			mensaje_create_and_send(M_TURNO_FINALIZADO_SOLICITANDO_RECURSO, NULL, 0,
 					self->nivel_actual->socket_planificador);
 			mensaje_destroy(result);
 			return true;

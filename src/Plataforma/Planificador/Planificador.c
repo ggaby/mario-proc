@@ -201,6 +201,10 @@ bool planificador_process_request(t_planificador* self, t_mensaje* mensaje,
 	case M_TURNO_FINALIZADO_OK:
 		planificador_finalizar_turno(self);
 		break;
+	case M_TURNO_FINALIZADO_SOLICITANDO_RECURSO:
+		self->quantum_restante = 0;
+		planificador_finalizar_turno(self);
+		break;
 	case M_TURNO_FINALIZADO_BLOCKED:
 		planificador_finalizar_turno_bloqueado(self, mensaje);
 		break;
