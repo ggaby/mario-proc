@@ -26,13 +26,13 @@ void* orquestador(void* plat) {
 
 		t_mensaje* mensaje = mensaje_recibir(client);
 
-		if (mensaje == NULL ) {
+		if (mensaje == NULL) {
 			sockets_destroyClient(client);
 			pthread_mutex_lock(&plataforma->logger_mutex);
 			log_warning(plataforma->logger,
 					"Orquestador: Error al recibir datos en el accept");
 			pthread_mutex_unlock(&plataforma->logger_mutex);
-			return NULL ;
+			return NULL;
 		}
 
 		int tipo_mensaje = mensaje->type;
@@ -50,7 +50,7 @@ void* orquestador(void* plat) {
 			if (!procesar_handshake_nivel(self, client, plataforma)) {
 				orquestador_send_error_message("Error al procesar el handshake",
 						client);
-				return NULL ;
+				return NULL;
 			}
 			break;
 		default:
@@ -60,7 +60,7 @@ void* orquestador(void* plat) {
 					tipo_mensaje);
 			pthread_mutex_unlock(&plataforma->logger_mutex);
 			orquestador_send_error_message("Request desconocido", client);
-			return NULL ;
+			return NULL;
 		}
 
 		return client;
@@ -70,7 +70,7 @@ void* orquestador(void* plat) {
 
 		t_mensaje* mensaje = mensaje_recibir(client);
 
-		if (mensaje == NULL ) {
+		if (mensaje == NULL) {
 			pthread_mutex_lock(&plataforma->logger_mutex);
 			log_debug(plataforma->logger,
 					"Orquestador: Mensaje recibido NULL.");
@@ -88,7 +88,7 @@ void* orquestador(void* plat) {
 
 	sockets_create_little_server(plataforma->ip, self->puerto,
 			plataforma->logger, &plataforma->logger_mutex, "Orquestador",
-			self->servers, self->clients, &acceptClosure, &recvClosure, NULL );
+			self->servers, self->clients, &acceptClosure, &recvClosure, NULL);
 
 	orquestador_destroy(self);
 
@@ -158,7 +158,7 @@ void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client,
 	plataforma_t_nivel* el_nivel = plataforma_get_nivel_by_nombre(plataforma,
 			nivel_pedido);
 
-	if (el_nivel == NULL ) {
+	if (el_nivel == NULL) {
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_error(plataforma->logger, "Orquestador: Nivel inválido: %s",
 				nivel_pedido);
@@ -199,7 +199,7 @@ bool procesar_handshake_nivel(t_orquestador* self,
 
 	mensaje = mensaje_recibir(socket_nivel);
 
-	if (mensaje == NULL ) {
+	if (mensaje == NULL) {
 		sockets_destroyClient(socket_nivel);
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_warning(plataforma->logger,
@@ -259,7 +259,7 @@ void verificar_nivel_desconectado(t_plataforma* plataforma,
 	plataforma_t_nivel* nivel_desconectado = list_find(plataforma->niveles,
 			(void*) es_el_nivel);
 
-	if (nivel_desconectado != NULL ) {
+	if (nivel_desconectado != NULL) {
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_info(plataforma->logger,
 				"Orquestador: El nivel %s se ha desconectado",
@@ -284,6 +284,20 @@ void verificar_nivel_desconectado(t_plataforma* plataforma,
 void orquestador_handler_deadlock(char* ids_personajes_en_deadlock,
 		t_plataforma* plataforma, t_socket_client* socket_nivel) {
 
+	planificador_t_personaje* victima = orquestador_seleccionar_victima(
+			ids_personajes_en_deadlock, plataforma, socket_nivel);
+
+	orquestador_matar_personaje(plataforma, victima);
+	orquestador_informar_victima_al_nivel(plataforma, victima, socket_nivel);
+
+}
+
+planificador_t_personaje* orquestador_seleccionar_victima(
+		char* ids_personajes_en_deadlock, t_plataforma* plataforma,
+		t_socket_client* socket_nivel) {
+
+//RETURN OSCAR;
+
 	plataforma_t_nivel* nivel = plataforma_get_nivel_by_socket(plataforma,
 			socket_nivel);
 
@@ -301,7 +315,7 @@ void orquestador_handler_deadlock(char* ids_personajes_en_deadlock,
 		planificador_t_personaje* el_personaje =
 				buscar_personaje_bloqueado_by_id(nivel->planificador, id[0]);
 
-		if (el_personaje != NULL ) {
+		if (el_personaje != NULL) {
 			list_add(personajes, el_personaje);
 		}
 	}
@@ -320,6 +334,8 @@ void orquestador_handler_deadlock(char* ids_personajes_en_deadlock,
 	pthread_mutex_lock(&plataforma->logger_mutex);
 	log_info(plataforma->logger, "Orquestador: victima: %c", victima->id);
 	pthread_mutex_unlock(&plataforma->logger_mutex);
+
+	return victima;
 
 }
 
@@ -342,7 +358,7 @@ void orquestador_liberar_recursos(t_plataforma* plataforma,
 			planificador_t_personaje* personaje_desbloqueado =
 					planificador_recurso_liberado(plataforma,
 							nivel->planificador, elem->simbolo);
-			if (personaje_desbloqueado != NULL ) {
+			if (personaje_desbloqueado != NULL) {
 				char* asignacion = string_from_format("%c%c,",
 						personaje_desbloqueado->id, elem->simbolo);
 				string_append(&recursos_asignados,
@@ -372,14 +388,29 @@ t_list* parsear_recursos(char* recursos_str) {
 			strlen(recursos_str) - 1);
 	char** recursos_arr = string_split(recursos_str2, ",");
 	int index = 0;
-	while (recursos_arr[index] != NULL ) {
+	while (recursos_arr[index] != NULL) {
 		char* recurso = recursos_arr[index];
 		list_add(recursos,
-				recurso_create(NULL, recurso[0], atoi(recurso + 1), NULL ));
+				recurso_create(NULL, recurso[0], atoi(recurso + 1), NULL));
 		index++;
 	}
 
 	array_destroy(recursos_arr);
 	free(recursos_str2);
 	return recursos;
+}
+
+void orquestador_matar_personaje(t_plataforma* plataforma,
+		planificador_t_personaje* victima) {
+	//TODO
+	//TODO
+	//TODO
+
+}
+
+void orquestador_informar_victima_al_nivel(t_plataforma* plataforma,
+		planificador_t_personaje* victima, t_socket_client* tsocket_nivel) {
+	//TODO
+	//TODO
+	//TODO
 }

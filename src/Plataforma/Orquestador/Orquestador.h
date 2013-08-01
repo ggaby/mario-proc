@@ -33,5 +33,12 @@ void orquestador_handler_deadlock(char* ids_personajes_en_deadlock,
 void orquestador_liberar_recursos(t_plataforma* plataforma,
 		t_socket_client* client, char* recursos_str);
 t_list* parsear_recursos(char* recursos_str);
+planificador_t_personaje* orquestador_seleccionar_victima(
+		char* ids_personajes_en_deadlock, t_plataforma* plataforma,
+		t_socket_client* socket_nivel);
+void orquestador_matar_personaje(t_plataforma* plataforma,
+		planificador_t_personaje* victima);
+void orquestador_informar_victima_al_nivel(t_plataforma* plataforma,
+		planificador_t_personaje* victima, t_socket_client* tsocket_nivel);
 
 #endif /* ORQUESTADOR_H_ */
