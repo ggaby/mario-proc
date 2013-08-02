@@ -24,13 +24,13 @@ void* planificador(void* args) {
 
 		t_mensaje* mensaje = mensaje_recibir(client);
 
-		if (mensaje == NULL ) {
+		if (mensaje == NULL) {
 			sockets_destroyClient(client);
 			pthread_mutex_lock(&plataforma->logger_mutex);
 			log_warning(plataforma->logger,
 					"%s: Error al recibir datos en el accept", self->log_name);
 			pthread_mutex_unlock(&plataforma->logger_mutex);
-			return NULL ;
+			return NULL;
 		}
 
 		//Solo se conectan personajes, asi que solo valido handshake de personajes
@@ -39,7 +39,7 @@ void* planificador(void* args) {
 				|| strcmp(mensaje->payload, PERSONAJE_HANDSHAKE) != 0) {
 			mensaje_destroy(mensaje);
 			sockets_destroyClient(client);
-			return NULL ;
+			return NULL;
 		}
 
 		mensaje_destroy(mensaje);
@@ -70,7 +70,7 @@ void* planificador(void* args) {
 
 			t_mensaje* mensaje = mensaje_recibir(client);
 
-			if (mensaje == NULL ) {
+			if (mensaje == NULL) {
 				pthread_mutex_lock(&plataforma->logger_mutex);
 				log_warning(plataforma->logger, "%s: Mensaje recibido NULL.",
 						self->log_name);
@@ -93,7 +93,7 @@ void* planificador(void* args) {
 	sockets_create_little_server(self->connection_info->ip,
 			self->connection_info->puerto, plataforma->logger,
 			&plataforma->logger_mutex, self->log_name, self->servers,
-			self->clients, &acceptClosure, &recvClosure, NULL );
+			self->clients, &acceptClosure, &recvClosure, NULL);
 
 	pthread_mutex_lock(&plataforma->logger_mutex);
 	log_info(plataforma->logger, "%s: Server cerrado correctamente",
@@ -112,11 +112,11 @@ t_planificador* planificador_create(t_plataforma* plataforma,
 
 	new->log_name = string_from_format("Planificador nivel %s", nombre_nivel);
 	new->quantum_total = config_get_int_value(config,
-			PLANIFICADOR_CONFIG_QUANTUM);
+	PLANIFICADOR_CONFIG_QUANTUM);
 	new->quantum_restante = new->quantum_total;
 
 	new->tiempo_sleep = config_get_double_value(config,
-			PLANIFICADOR_CONFIG_TIEMPO_ESPERA) * 1000000;
+	PLANIFICADOR_CONFIG_TIEMPO_ESPERA) * 1000000;
 
 	new->personajes_ready = queue_create();
 	new->personajes_blocked = dictionary_create();
@@ -135,7 +135,7 @@ t_planificador* planificador_create(t_plataforma* plataforma,
 			plataforma->config_path);
 	list_add(new->clients, new->inotify_fd_wrapper);
 
-	pthread_mutex_init(&new->planificador_mutex, NULL );
+	pthread_mutex_init(&new->planificador_mutex, NULL);
 	return new;
 }
 
@@ -156,7 +156,7 @@ void planificador_destroy(t_planificador* self) {
 	dictionary_iterator(self->personajes_blocked, (void*) destruir_la_cola);
 	dictionary_destroy(self->personajes_blocked);
 
-	if (self->personaje_ejecutando != NULL ) {
+	if (self->personaje_ejecutando != NULL) {
 		planificador_personaje_destroy(self->personaje_ejecutando);
 	}
 	connection_destroy(self->connection_info);
@@ -187,7 +187,7 @@ planificador_t_personaje* planificador_personaje_create(t_socket_client* socket,
 }
 
 bool planificador_esta_procesando(t_planificador* self) {
-	return self->personaje_ejecutando != NULL ;
+	return self->personaje_ejecutando != NULL;
 }
 
 void planificador_resetear_quantum(t_planificador* self) {
@@ -224,7 +224,6 @@ void planificador_finalizar_turno(t_planificador* self) {
 	pthread_mutex_lock(&self->planificador_mutex);
 	if (self->quantum_restante == 0) {
 		planificador_cambiar_de_personaje(self);
-		planificador_resetear_quantum(self);
 	}
 
 	planificador_mover_personaje(self);
@@ -235,7 +234,6 @@ void planificador_finalizar_turno_bloqueado(t_planificador* self,
 		t_mensaje* mensaje) {
 	pthread_mutex_lock(&self->planificador_mutex);
 	bloquear_personaje(self, (char*) mensaje->payload);
-	planificador_resetear_quantum(self);
 	planificador_mover_personaje(self);
 	pthread_mutex_unlock(&self->planificador_mutex);
 }
@@ -248,6 +246,7 @@ void bloquear_personaje(t_planificador* self, char* recurso) {
 			recurso);
 	queue_push(cola_bloqueados, self->personaje_ejecutando);
 	self->personaje_ejecutando = queue_pop(self->personajes_ready);
+	planificador_resetear_quantum(self);
 }
 
 /*
@@ -255,15 +254,16 @@ void bloquear_personaje(t_planificador* self, char* recurso) {
  */
 void planificador_mover_personaje(t_planificador* self) {
 	usleep(self->tiempo_sleep);
-	self->quantum_restante--;
 
-	if (self->personaje_ejecutando == NULL ) {
+	if (self->personaje_ejecutando == NULL || self->quantum_restante == 0) {
 		planificador_cambiar_de_personaje(self);
 	}
 
-	if (self->personaje_ejecutando == NULL ) { //No hay más personajes (chanchada.com)
+	if (self->personaje_ejecutando == NULL) { //No hay más personajes (chanchada.com)
 		return;
 	}
+
+	self->quantum_restante--;
 
 	t_mensaje* mensaje = mensaje_create(M_NOTIFICACION_MOVIMIENTO);
 
@@ -276,11 +276,12 @@ void planificador_mover_personaje(t_planificador* self) {
  * Pone el personaje ejecutando al final de la cola de ready y saca el siguiente
  */
 void planificador_cambiar_de_personaje(t_planificador* self) {
-	if (self->personaje_ejecutando != NULL ) {
+	if (self->personaje_ejecutando != NULL) {
 		queue_push(self->personajes_ready, self->personaje_ejecutando);
 	}
 
 	self->personaje_ejecutando = queue_pop(self->personajes_ready);
+	planificador_resetear_quantum(self);
 }
 
 void verificar_personaje_desconectado(t_planificador* self,
@@ -293,7 +294,7 @@ void verificar_personaje_desconectado(t_planificador* self,
 //Alto hack: queue->elements se puede manejar como una lista y recorrerla ;)
 	planificador_t_personaje* personaje_desconectado = list_find(
 			self->personajes_ready->elements, (void*) es_el_personaje);
-	if (personaje_desconectado != NULL ) {
+	if (personaje_desconectado != NULL) {
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_warning(plataforma->logger,
 				"%s: El personaje en el socket %d se ha desconectado estando en ready",
@@ -305,7 +306,7 @@ void verificar_personaje_desconectado(t_planificador* self,
 	} else {
 		personaje_desconectado = buscar_personaje_bloqueado_by_socket(self,
 				client);
-		if (personaje_desconectado != NULL ) {
+		if (personaje_desconectado != NULL) {
 			pthread_mutex_lock(&plataforma->logger_mutex);
 			log_warning(plataforma->logger,
 					"%s: El personaje en el socket %d se ha desconectado estando en blocked",
@@ -327,7 +328,6 @@ void verificar_personaje_desconectado(t_planificador* self,
 				planificador_personaje_destroy(self->personaje_ejecutando);
 				self->personaje_ejecutando = NULL;
 				planificador_cambiar_de_personaje(self);
-				planificador_resetear_quantum(self);
 				planificador_mover_personaje(self);
 			}
 		}
@@ -361,7 +361,7 @@ planificador_t_personaje* buscar_personaje_bloqueado_by_id(t_planificador* self,
 }
 
 planificador_t_personaje* buscar_personaje_bloqueado(t_planificador* self,
-		bool condision(void*)) {
+bool condision(void*)) {
 	t_list* colas = list_create();
 
 	//If you know what I mean ;)
@@ -374,13 +374,13 @@ planificador_t_personaje* buscar_personaje_bloqueado(t_planificador* self,
 	bool buscar_la_cola(t_queue* cola) {
 		planificador_t_personaje* el_personaje = list_find(cola->elements,
 				(void*) condision);
-		return el_personaje != NULL ;
+		return el_personaje != NULL;
 	}
 
 	t_queue* la_cola = list_find(colas, (void*) buscar_la_cola);
 
 	planificador_t_personaje* el_personaje = NULL;
-	if (la_cola != NULL ) {
+	if (la_cola != NULL) {
 		el_personaje = list_find(la_cola->elements, (void*) condision);
 	}
 
@@ -406,7 +406,7 @@ void remover_de_bloqueados(t_planificador* self,
 	bool buscar_la_cola(t_queue* cola) {
 		planificador_t_personaje* el_personaje = list_find(cola->elements,
 				(void*) es_el_personaje);
-		return el_personaje != NULL ;
+		return el_personaje != NULL;
 	}
 
 	t_queue* la_cola = list_find(colas, (void*) buscar_la_cola);
@@ -424,10 +424,10 @@ t_socket_client* inotify_socket_wrapper_create(char* file_to_watch) {
 	if (client->socket->desc < 0) {
 		free(client->socket);
 		free(client);
-		return NULL ;
+		return NULL;
 	}
 	inotify_add_watch(client->socket->desc, file_to_watch,
-			IN_MODIFY | IN_CREATE);
+	IN_MODIFY | IN_CREATE);
 	client->socket->my_addr = malloc(sizeof(struct sockaddr_in));
 	sockets_setState(client, SOCKETSTATE_CONNECTED);
 	return client;
@@ -449,9 +449,9 @@ void planificador_reload_config(t_planificador* self, t_socket_client* client,
 	if (event->mask & (IN_CREATE | IN_MODIFY)) {
 		t_config* config = config_create(plataforma->config_path);
 		self->quantum_total = config_get_int_value(config,
-				PLANIFICADOR_CONFIG_QUANTUM);
+		PLANIFICADOR_CONFIG_QUANTUM);
 		self->tiempo_sleep = config_get_double_value(config,
-				PLANIFICADOR_CONFIG_TIEMPO_ESPERA) * 1000000;
+		PLANIFICADOR_CONFIG_TIEMPO_ESPERA) * 1000000;
 		config_destroy(config);
 	}
 
@@ -476,11 +476,11 @@ planificador_t_personaje* planificador_recurso_liberado(
 
 	t_queue* cola_bloqueados = dictionary_get(self->personajes_blocked, key);
 
-	if (cola_bloqueados != NULL ) {
+	if (cola_bloqueados != NULL) {
 		planificador_t_personaje* personaje_desbloqueado = queue_pop(
 				cola_bloqueados);
 
-		if (personaje_desbloqueado != NULL ) {
+		if (personaje_desbloqueado != NULL) {
 			queue_push(self->personajes_ready, personaje_desbloqueado);
 
 			pthread_mutex_lock(&plataforma->logger_mutex);
