@@ -233,6 +233,7 @@ t_personaje* personaje_create(char* config_path) {
 	new->objetivos_array = NULL;
 	new->objetivo_actual = NULL;
 	new->objetivo_actual_index = 0;
+	new->is_blocked = false;
 
 	free(s);
 	free(log_file);
@@ -452,7 +453,8 @@ bool personaje_jugar_nivel(t_personaje* self) {
 			return false;
 		}
 
-		while (!posicion_equals(self->posicion, self->posicion_objetivo)) {
+		while (!posicion_equals(self->posicion, self->posicion_objetivo)
+				|| self->is_blocked) {
 
 			if (!realizar_movimiento(self)) {
 				free(self->objetivo_actual);
@@ -518,6 +520,10 @@ bool realizar_movimiento(t_personaje* self) {
 	mensaje_destroy(notificacion_movimiento);
 
 	if (mensaje_type == M_NOTIFICACION_MOVIMIENTO) {
+		if (posicion_equals(self->posicion, self->posicion_objetivo)
+				&& self->is_blocked) {
+			return true;
+		}
 		return mover_en_nivel(self);
 	}
 	return false;
@@ -564,6 +570,12 @@ bool mover_en_nivel(t_personaje* self) {
 bool finalizar_turno(t_personaje* self, char* objetivo) {
 
 	if (posicion_equals(self->posicion, self->posicion_objetivo)) { //Llegué al recurso
+		if (self->is_blocked) {
+			log_info(self->logger, "Personaje %s: objetivo %s asignado",
+					self->nombre, objetivo);
+			self->is_blocked = false;
+			return true;
+		}
 		log_info(self->logger, "Personaje %s: objetivo %s alcanzado",
 				self->nombre, objetivo);
 		t_mensaje* result = solicitar_recurso(self);
@@ -584,6 +596,7 @@ bool finalizar_turno(t_personaje* self, char* objetivo) {
 		if (result->type == M_SOLICITUD_RECURSO_RESPONSE_BLOCKED) {
 			log_info(self->logger, "Personaje %s: objetivo %s NO asignado",
 					self->nombre, objetivo);
+			self->is_blocked = true;
 			mensaje_create_and_send(M_TURNO_FINALIZADO_BLOCKED,
 					string_duplicate(objetivo), strlen(objetivo) + 1,
 					self->nivel_actual->socket_planificador);

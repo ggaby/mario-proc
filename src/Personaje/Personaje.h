@@ -43,6 +43,7 @@ typedef struct {
 	char** objetivos_array;
 	char* objetivo_actual;
 	int objetivo_actual_index;
+	bool is_blocked;
 } t_personaje;
 
 t_personaje* personaje_create(char* config_path);
