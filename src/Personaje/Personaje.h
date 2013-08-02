@@ -38,6 +38,11 @@ typedef struct {
 	t_posicion* posicion;
 	t_posicion* posicion_objetivo;
 	bool nivel_finalizado;
+	int nivel_actual_index;
+	int vidas_iniciales;
+	char** objetivos_array;
+	char* objetivo_actual;
+	int objetivo_actual_index;
 } t_personaje;
 
 t_personaje* personaje_create(char* config_path);
@@ -58,5 +63,8 @@ bool finalizar_turno(t_personaje* self, char* objetivo);
 t_mensaje* solicitar_recurso(t_personaje* self);
 void finalizar_nivel(t_personaje* self);
 void personaje_avisar_fin_de_nivel(t_personaje* self);
+void morir(t_personaje* self, char* motivo);
+void limpiar_estado_nivel(t_personaje* self);
+void avisar_muerte_a_nivel(t_personaje* self);
 
 #endif /* PERSONAJE_H_ */

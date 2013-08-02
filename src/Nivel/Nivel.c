@@ -234,6 +234,9 @@ bool nivel_process_request(nivel_t_nivel* self, t_mensaje* request,
 		nivel_asignar_recursos_liberados(self,
 				string_duplicate((char*) request->payload), client);
 		break;
+	case M_MUERTE_PERSONAJE:
+		verificar_personaje_desconectado(self, client, false);
+			break;
 	default: {
 		char* error_msg = string_from_format(
 				"Tipo del mensaje recibido no valido tipo: %d", request->type);
@@ -373,7 +376,7 @@ void nivel_mover_personaje(nivel_t_nivel* self, t_posicion* posicion,
 						posicion->x, posicion->y, personaje->id);
 
 		mensaje_create_and_send(M_ERROR, string_duplicate(mensaje_error),
-				strlen(mensaje_error), client);
+				strlen(mensaje_error) + 1, client);
 
 		free(mensaje_error);
 		return;
