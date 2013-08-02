@@ -1,2 +1,3 @@
 quantum=3
 tiempoEntreMovimientos=0.5
+ip=127.0.0.1

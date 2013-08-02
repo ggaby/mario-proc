@@ -1,5 +1,9 @@
-Vidas=5
+nombre=mario
+simbolo=@
 planDeNiveles=[DeadLock]
 obj[DeadLock]=[H,M]
-simbolo=@
-nombre=mario
+vidas=5
+orquestador=127.0.0.1:5000
+puerto=5005
+logFile=mario.log
+logLevel=TRACE

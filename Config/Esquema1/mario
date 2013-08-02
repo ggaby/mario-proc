@@ -1,7 +1,11 @@
-Vidas=5
+nombre=mario
+simbolo=@
 planDeNiveles=[Level1-1,Level3-1,Level8-8]
 obj[Level1-1]=[F,H,M,H,B]
 obj[Level3-1]=[B,T,R,B]
 obj[Level8-8]=[H,E,C]
-simbolo=@
-nombre=mario
+vidas=5
+orquestador=127.0.0.1:5000
+puerto=5005
+logFile=mario.log
+logLevel=TRACE

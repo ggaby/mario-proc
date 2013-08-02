@@ -1,5 +1,8 @@
-Vidas=5
-planDeNiveles=[DeadLock]
-obj[DeadLock]=[M,Z]
 nombre=luigi
 simbolo=*
+planDeNiveles=[DeadLock]
+obj[DeadLock]=[M,Z]
+vidas=5
+puerto=5005
+logFile=luigi.log
+logLevel=TRACE

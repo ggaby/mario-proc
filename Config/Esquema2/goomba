@@ -1,5 +1,8 @@
-Vidas=5
-planDeNiveles=[DeadLock]
-obj[DeadLock]=[Z,H]
 nombre=goomba
 simbolo=#
+planDeNiveles=[DeadLock]
+obj[DeadLock]=[Z,H]
+vidas=5
+puerto=5005
+logFile=goomba.log
+logLevel=TRACE

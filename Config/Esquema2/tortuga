@@ -1,5 +1,10 @@
 nombre=tortuga
 simbolo=&
-Vidas=5
 planDeNiveles=[DeadLock]
 obj[DeadLock]=[B,H]
+vidas=5
+orquestador=127.0.0.1:5000
+puerto=5005
+logFile=tortuga.log
+logLevel=TRACE
+

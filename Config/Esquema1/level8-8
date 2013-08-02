@@ -1,5 +1,11 @@
-Caja1=[Calaveras, C, 1, 23, 3]
-Caja2=[Huesos, H, 1, 60, 20]
-Caja3=[Espinas, E, 1, 40, 10]
-recovery=1
-tiempoDeCheckeoDeadlock=20
+Nombre=Level8-8
+Caja1=Calaveras,C,1,23,3
+Caja2=Huesos, H,1,60,20
+Caja3=Espinas,E,1,40,10
+orquestador=127.0.0.1:5000
+TiempoChequeoDeadlock=20
+Recovery=1
+puerto=6003
+cantidadColumnasMapa=50
+cantidadFilasMapa=50
+logLevel=DEBUG
