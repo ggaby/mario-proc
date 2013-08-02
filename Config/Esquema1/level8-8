@@ -1,0 +1,5 @@
+Caja1=[Calaveras, C, 1, 23, 3]
+Caja2=[Huesos, H, 1, 60, 20]
+Caja3=[Espinas, E, 1, 40, 10]
+recovery=1
+tiempoDeCheckeoDeadlock=20

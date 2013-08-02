@@ -1,0 +1,5 @@
+Caja1=[Bombas, B, 2, 9, 5]
+Caja2=[Telefonos, T, 3, 20, 15]
+Caja3=[Relojes, R, 2, 17, 3]
+recovery=1
+tiempoDeCheckeoDeadlock=20

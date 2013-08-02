@@ -1,0 +1,6 @@
+Caja1=[Hongos, H, 1, 10, 10]
+Caja2=[Monedas, M, 1, 18, 2]
+Caja3=[Manzanas, Z, 1, 2, 18]
+Caja4=[Bananas, B, 1, 8, 12]
+recovery=1
+tiempoDeCheckeoDeadlock=60

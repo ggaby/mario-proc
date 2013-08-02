@@ -1,0 +1,7 @@
+Vidas=5
+planDeNiveles=[Level1-1,Level3-1,Level8-8]
+obj[Level1-1]=[F,H,M,H,B]
+obj[Level3-1]=[B,T,R,B]
+obj[Level8-8]=[H,E,C]
+simbolo=@
+nombre=mario

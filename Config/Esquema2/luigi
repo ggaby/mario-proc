@@ -1,0 +1,5 @@
+Vidas=5
+planDeNiveles=[DeadLock]
+obj[DeadLock]=[M,Z]
+nombre=luigi
+simbolo=*

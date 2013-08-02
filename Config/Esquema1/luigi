@@ -1,0 +1,6 @@
+Vidas=5
+planDeNiveles=[Level2-1, Level8-8]
+obj[Level2-1]=[F,C,F,C,F,C,F,C,F]
+obj[Level8-8]=[H,E,C]
+simbolo=*
+nombre=luigi

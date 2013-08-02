@@ -1,0 +1,5 @@
+nombre=tortuga
+simbolo=&
+Vidas=5
+planDeNiveles=[DeadLock]
+obj[DeadLock]=[B,H]

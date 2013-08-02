@@ -33,7 +33,7 @@ dependents:
 libMemoria: $(OBJS) $(USER_OBJS) /home/utnso/tp-20131c-ahrelocoooo/Makes/Commons-library/libcommons.so
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C Linker'
-	gcc -L"/home/utnso/tp-20131c-ahrelocoooo/Makes/Commons-library" -shared -o "libMemoria.so" $(OBJS) $(USER_OBJS) $(LIBS)
+	gcc -L"/home/utnso/tp-20131c-ahrelocoooo/Makes/Commons-library" -shared -o "libmemoria.so" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
