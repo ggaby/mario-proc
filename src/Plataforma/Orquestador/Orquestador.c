@@ -287,8 +287,8 @@ void orquestador_handler_deadlock(char* ids_personajes_en_deadlock,
 	planificador_t_personaje* victima = orquestador_seleccionar_victima(
 			ids_personajes_en_deadlock, plataforma, socket_nivel);
 
-	orquestador_matar_personaje(plataforma, victima);
 	orquestador_informar_victima_al_nivel(plataforma, victima, socket_nivel);
+	orquestador_matar_personaje(plataforma, victima);
 
 }
 
@@ -402,15 +402,18 @@ t_list* parsear_recursos(char* recursos_str) {
 
 void orquestador_matar_personaje(t_plataforma* plataforma,
 		planificador_t_personaje* victima) {
-	//TODO
-	//TODO
-	//TODO
-
+	pthread_mutex_lock(&plataforma->logger_mutex);
+	log_info(plataforma->logger, "Orquestador: Matando al personaje %c",
+			victima->id);
+	pthread_mutex_unlock(&plataforma->logger_mutex);
+	mensaje_create_and_send(M_MORITE_GIL, NULL, 0, victima->socket);
 }
 
 void orquestador_informar_victima_al_nivel(t_plataforma* plataforma,
-		planificador_t_personaje* victima, t_socket_client* tsocket_nivel) {
-	//TODO
-	//TODO
-	//TODO
+		planificador_t_personaje* victima, t_socket_client* socket_nivel) {
+	char* victima_str = string_from_format("%c", victima->id);
+	mensaje_create_and_send(M_VICTIMA_SELECCIONADA,
+			string_duplicate(victima_str), strlen(victima_str) + 1,
+			socket_nivel);
+	free(victima_str);
 }

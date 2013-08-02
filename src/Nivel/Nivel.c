@@ -45,11 +45,11 @@ int main(int argc, char *argv[]) {
 
 		t_mensaje* mensaje = mensaje_recibir(client);
 
-		if (mensaje == NULL ) {
+		if (mensaje == NULL) {
 			sockets_destroyClient(client);
 			nivel_loguear(log_warning, self,
 					"Error al recibir datos en el accept");
-			return NULL ;
+			return NULL;
 		}
 
 		if (mensaje->type != M_HANDSHAKE_PERSONAJE
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
 			mensaje_destroy(mensaje);
 			sockets_destroyClient(client);
 			nivel_loguear(log_warning, self, "Handshake recibido invalido.");
-			return NULL ;
+			return NULL;
 		}
 
 		mensaje_destroy(mensaje);
@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
 				&self->logger_mutex);
 
 		if (!id_personaje) {
-			return NULL ;
+			return NULL;
 		}
 
 		nivel_loguear(log_debug, self, "ID de personaje recibido: %s",
@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
 
 		t_mensaje* mensaje = mensaje_recibir(client);
 
-		if (mensaje == NULL ) {
+		if (mensaje == NULL) {
 			nivel_loguear(log_warning, self, "Mensaje recibido NULL.");
 			verificar_personaje_desconectado(self, client, false);
 			return false;
@@ -153,7 +153,7 @@ nivel_t_nivel* nivel_create(char* config_path) {
 	new->logger = log_create(log_file, "Nivel", false,
 			log_level_from_string(log_level));
 
-	pthread_mutex_init(&new->logger_mutex, NULL );
+	pthread_mutex_init(&new->logger_mutex, NULL);
 
 	free(log_file);
 	free(log_level);
@@ -163,7 +163,7 @@ nivel_t_nivel* nivel_create(char* config_path) {
 		log_error(new->logger,
 				"Error en archivo de configuracion: falta el puerto.");
 		nivel_destroy(new);
-		return NULL ;
+		return NULL;
 	}
 
 	new->puerto = config_get_int_value(config, "puerto");
@@ -202,7 +202,7 @@ void nivel_destroy(nivel_t_nivel* self) {
 }
 
 void nivel_destroy_personaje(nivel_t_personaje* personaje) {
-	if (personaje->posicion != NULL ) {
+	if (personaje->posicion != NULL) {
 		posicion_destroy(personaje->posicion);
 	}
 	nivel_desbloquear_personaje(personaje);
@@ -236,7 +236,11 @@ bool nivel_process_request(nivel_t_nivel* self, t_mensaje* request,
 		break;
 	case M_MUERTE_PERSONAJE:
 		verificar_personaje_desconectado(self, client, false);
-			break;
+		break;
+	case M_VICTIMA_SELECCIONADA:
+		procesar_victima_seleccionada(self,
+				string_duplicate((char*) request->payload));
+		break;
 	default: {
 		char* error_msg = string_from_format(
 				"Tipo del mensaje recibido no valido tipo: %d", request->type);
@@ -281,7 +285,7 @@ void nivel_get_posicion_recurso(nivel_t_nivel* self, char* id_recurso,
 
 	t_recurso* recurso = list_find(self->recursos, (void*) es_el_recurso);
 
-	if (recurso == NULL ) {
+	if (recurso == NULL) {
 		char* mensaje_error = string_from_format(
 				"El recurso %s no se encuentra en el nivel.", id_recurso);
 
@@ -318,7 +322,7 @@ bool nivel_conectar_a_orquestador(nivel_t_nivel* self) {
 			self->logger, M_HANDSHAKE_NIVEL, NIVEL_HANDSHAKE, HANDSHAKE_SUCCESS,
 			"Orquestador");
 
-	return (self->socket_orquestador != NULL );
+	return (self->socket_orquestador != NULL);
 }
 
 nivel_t_personaje* nivel_create_personaje(nivel_t_nivel* self,
@@ -423,7 +427,7 @@ void verificar_personaje_desconectado(nivel_t_nivel* self,
 	nivel_t_personaje* personaje_desconectado = list_find(self->personajes,
 			(void*) es_el_personaje);
 
-	if (personaje_desconectado != NULL ) {
+	if (personaje_desconectado != NULL) {
 		if (fin_de_nivel) {
 			nivel_loguear(log_warning, self,
 					"El personaje %c se ha terminado el nivel",
@@ -464,7 +468,7 @@ void nivel_asignar_recurso(nivel_t_nivel* self, t_posicion* posicion,
 
 	t_recurso* el_recurso = list_find(self->recursos, (void*) es_el_recurso);
 
-	if (el_recurso == NULL ) {
+	if (el_recurso == NULL) {
 		char* error_msg = string_from_format(
 				"Recurso solicitado inválido (%d,%d)", posicion->x,
 				posicion->y);
@@ -478,7 +482,7 @@ void nivel_asignar_recurso(nivel_t_nivel* self, t_posicion* posicion,
 	nivel_t_personaje* el_personaje = list_find(self->personajes,
 			(void*) es_el_personaje);
 
-	if (el_personaje == NULL ) {
+	if (el_personaje == NULL) {
 		nivel_loguear(log_warning, self,
 				"Parece que el personaje se desconectó solicitando un recurso");
 		verificar_personaje_desconectado(self, client, false);
@@ -521,7 +525,7 @@ void asignar_recurso_a_personaje(nivel_t_nivel* self,
 	t_recurso* recurso_asignado = list_find(personaje->recursos_asignados,
 			(void*) es_el_recurso);
 
-	if (recurso_asignado == NULL ) {
+	if (recurso_asignado == NULL) {
 		recurso_asignado = recurso_clone(recurso);
 		recurso_asignado->cantidad = 1;
 		list_add(personaje->recursos_asignados, recurso_asignado);
@@ -566,7 +570,7 @@ void nivel_bloquear_personaje(nivel_t_personaje* personaje, t_recurso* recurso) 
 }
 
 void nivel_desbloquear_personaje(nivel_t_personaje* personaje) {
-	if (personaje->simbolo_recurso_esperado != NULL ) {
+	if (personaje->simbolo_recurso_esperado != NULL) {
 		free(personaje->simbolo_recurso_esperado);
 		personaje->simbolo_recurso_esperado = NULL;
 	}
@@ -619,19 +623,20 @@ void nivel_asignar_recursos_liberados(nivel_t_nivel* self,
 		t_recurso* el_recurso = list_find(self->recursos,
 				(void*) es_el_recurso);
 
-		if (el_personaje != NULL && el_recurso != NULL ) {
+		if (el_personaje != NULL && el_recurso != NULL) {
 			asignar_recurso_a_personaje(self, el_personaje, el_recurso);
 			el_recurso->cantidad--;
 			mapa_update_recurso(self->mapa, el_recurso->simbolo,
 					el_recurso->cantidad);
 
-			if ((el_personaje->simbolo_recurso_esperado == NULL ) ||
-			(el_personaje->simbolo_recurso_esperado[0] != el_recurso->simbolo)){
+			if ((el_personaje->simbolo_recurso_esperado == NULL)
+					|| (el_personaje->simbolo_recurso_esperado[0]
+							!= el_recurso->simbolo)) {
 
-			nivel_loguear(log_debug, self,
-					"Algo raro pasó, porque el personaje no estaba bloqueado");
+				nivel_loguear(log_debug, self,
+						"Algo raro pasó, porque el personaje no estaba bloqueado");
 
-		}
+			}
 			nivel_desbloquear_personaje(el_personaje);
 			nivel_loguear(log_debug, self,
 					"Se asigno 1 instancias del recurso %s al persoanje %c",
@@ -651,4 +656,8 @@ char** parsear_recursos_asignados(char* recursos_str) {
 	char** recursos_asignados = string_split(recursos_str2, ",");
 	free(recursos_str2);
 	return recursos_asignados;
+}
+
+void procesar_victima_seleccionada(nivel_t_nivel* self, char* victima) {
+	nivel_loguear(log_info, self, "La víctima seleccionada fue: %s", victima);
 }

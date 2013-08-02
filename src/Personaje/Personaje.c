@@ -549,6 +549,11 @@ bool realizar_movimiento(t_personaje* self) {
 		}
 		return mover_en_nivel(self);
 	}
+
+	if (mensaje_type == M_MORITE_GIL) {
+		morir(self, "Me muero a pedido del orquestador");
+		return false;
+	}
 	return false;
 }
 

@@ -47,6 +47,8 @@
 #define M_DEADLOCK_DETECTADO 55
 #define M_TURNO_FINALIZADO_SOLICITANDO_RECURSO 56
 #define M_MUERTE_PERSONAJE 57
+#define M_MORITE_GIL 58
+#define M_VICTIMA_SELECCIONADA 59
 
 //Contenidos de Mensajes
 #define PERSONAJE_HANDSHAKE "Aquí un personaje"
