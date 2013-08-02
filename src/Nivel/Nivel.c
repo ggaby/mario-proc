@@ -16,7 +16,7 @@
 bool verificar_argumentos(int argc, char* argv[]);
 nivel_t_personaje* nivel_create_personaje(nivel_t_nivel* self,
 		char id_personaje, t_socket_client* socket);
-void cargar_recursos_config(t_config* config, nivel_t_nivel* new);
+bool cargar_recursos_config(t_config* config, nivel_t_nivel* new);
 void nivel_create_grafica_recurso(nivel_t_nivel* self, t_recurso* recurso);
 void nivel_mover_personaje(nivel_t_nivel* self, t_posicion* posicion,
 		t_socket_client* client);
@@ -33,6 +33,10 @@ int main(int argc, char *argv[]) {
 
 	nivel_t_nivel* self = nivel_create(argv[1]);
 
+	if(self == NULL){
+		return EXIT_FAILURE;
+	}
+
 	if (!nivel_conectar_a_orquestador(self)) {
 		nivel_destroy(self);
 		return EXIT_FAILURE;
@@ -45,11 +49,11 @@ int main(int argc, char *argv[]) {
 
 		t_mensaje* mensaje = mensaje_recibir(client);
 
-		if (mensaje == NULL) {
+		if (mensaje == NULL ) {
 			sockets_destroyClient(client);
 			nivel_loguear(log_warning, self,
 					"Error al recibir datos en el accept");
-			return NULL;
+			return NULL ;
 		}
 
 		if (mensaje->type != M_HANDSHAKE_PERSONAJE
@@ -57,7 +61,7 @@ int main(int argc, char *argv[]) {
 			mensaje_destroy(mensaje);
 			sockets_destroyClient(client);
 			nivel_loguear(log_warning, self, "Handshake recibido invalido.");
-			return NULL;
+			return NULL ;
 		}
 
 		mensaje_destroy(mensaje);
@@ -72,7 +76,7 @@ int main(int argc, char *argv[]) {
 				&self->logger_mutex);
 
 		if (!id_personaje) {
-			return NULL;
+			return NULL ;
 		}
 
 		nivel_loguear(log_debug, self, "ID de personaje recibido: %s",
@@ -89,7 +93,7 @@ int main(int argc, char *argv[]) {
 
 		t_mensaje* mensaje = mensaje_recibir(client);
 
-		if (mensaje == NULL) {
+		if (mensaje == NULL ) {
 			nivel_loguear(log_warning, self, "Mensaje recibido NULL.");
 			verificar_personaje_desconectado(self, client, false);
 			verificar_orquestador_desconectado(self, client);
@@ -154,7 +158,7 @@ nivel_t_nivel* nivel_create(char* config_path) {
 	new->logger = log_create(log_file, "Nivel", false,
 			log_level_from_string(log_level));
 
-	pthread_mutex_init(&new->logger_mutex, NULL);
+	pthread_mutex_init(&new->logger_mutex, NULL );
 
 	free(log_file);
 	free(log_level);
@@ -164,17 +168,18 @@ nivel_t_nivel* nivel_create(char* config_path) {
 		log_error(new->logger,
 				"Error en archivo de configuracion: falta el puerto.");
 		nivel_destroy(new);
-		return NULL;
+		return NULL ;
 	}
 
 	new->puerto = config_get_int_value(config, "puerto");
 
-	int cols = config_get_int_value(config, NIVEL_CONFIG_COLUMNAS);
-	int rows = config_get_int_value(config, NIVEL_CONFIG_FILAS);
+	new->mapa = mapa_create();
 
-	new->mapa = mapa_create(rows, cols);
-
-	cargar_recursos_config(config, new);
+	if(!cargar_recursos_config(config, new)){
+		config_destroy(config);
+		nivel_destroy(new);
+		return NULL;
+	}
 
 	config_destroy(config);
 
@@ -203,7 +208,7 @@ void nivel_destroy(nivel_t_nivel* self) {
 }
 
 void nivel_destroy_personaje(nivel_t_personaje* personaje) {
-	if (personaje->posicion != NULL) {
+	if (personaje->posicion != NULL ) {
 		posicion_destroy(personaje->posicion);
 	}
 	nivel_desbloquear_personaje(personaje);
@@ -286,7 +291,7 @@ void nivel_get_posicion_recurso(nivel_t_nivel* self, char* id_recurso,
 
 	t_recurso* recurso = list_find(self->recursos, (void*) es_el_recurso);
 
-	if (recurso == NULL) {
+	if (recurso == NULL ) {
 		char* mensaje_error = string_from_format(
 				"El recurso %s no se encuentra en el nivel.", id_recurso);
 
@@ -323,7 +328,7 @@ bool nivel_conectar_a_orquestador(nivel_t_nivel* self) {
 			self->logger, M_HANDSHAKE_NIVEL, NIVEL_HANDSHAKE, HANDSHAKE_SUCCESS,
 			"Orquestador");
 
-	return (self->socket_orquestador != NULL);
+	return (self->socket_orquestador != NULL );
 }
 
 nivel_t_personaje* nivel_create_personaje(nivel_t_nivel* self,
@@ -396,7 +401,7 @@ void nivel_mover_personaje(nivel_t_nivel* self, t_posicion* posicion,
 
 }
 
-void cargar_recursos_config(t_config* config, nivel_t_nivel* new) {
+bool cargar_recursos_config(t_config* config, nivel_t_nivel* new) {
 
 	int index = 1;
 	char* key = string_from_format("Caja%d", index);
@@ -404,6 +409,18 @@ void cargar_recursos_config(t_config* config, nivel_t_nivel* new) {
 	while (config_has_property(config, key)) {
 		t_recurso* recurso = recurso_from_config_string(
 				config_get_string_value(config, key));
+
+		if (!mapa_contiene(new->mapa, recurso->posicion->x,
+				recurso->posicion->y)) {
+
+			log_error(new->logger,
+					"Recurso %s configurado en (%d, %d) fuera del mapa. Dimension del mapa (%d, %d)",
+					recurso->nombre, recurso->posicion->x, recurso->posicion->y,
+					new->mapa->rows, new->mapa->colums);
+
+			free(key);
+			return false;
+		}
 		list_add(new->recursos, recurso);
 		nivel_create_grafica_recurso(new, recurso);
 		free(key);
@@ -411,6 +428,8 @@ void cargar_recursos_config(t_config* config, nivel_t_nivel* new) {
 	}
 
 	free(key);
+
+	return true;
 }
 
 void nivel_create_grafica_recurso(nivel_t_nivel* self, t_recurso* recurso) {
@@ -428,7 +447,7 @@ void verificar_personaje_desconectado(nivel_t_nivel* self,
 	nivel_t_personaje* personaje_desconectado = list_find(self->personajes,
 			(void*) es_el_personaje);
 
-	if (personaje_desconectado != NULL) {
+	if (personaje_desconectado != NULL ) {
 		if (fin_de_nivel) {
 			nivel_loguear(log_warning, self,
 					"El personaje %c se ha terminado el nivel",
@@ -469,7 +488,7 @@ void nivel_asignar_recurso(nivel_t_nivel* self, t_posicion* posicion,
 
 	t_recurso* el_recurso = list_find(self->recursos, (void*) es_el_recurso);
 
-	if (el_recurso == NULL) {
+	if (el_recurso == NULL ) {
 		char* error_msg = string_from_format(
 				"Recurso solicitado inválido (%d,%d)", posicion->x,
 				posicion->y);
@@ -483,7 +502,7 @@ void nivel_asignar_recurso(nivel_t_nivel* self, t_posicion* posicion,
 	nivel_t_personaje* el_personaje = list_find(self->personajes,
 			(void*) es_el_personaje);
 
-	if (el_personaje == NULL) {
+	if (el_personaje == NULL ) {
 		nivel_loguear(log_warning, self,
 				"Parece que el personaje se desconectó solicitando un recurso");
 		verificar_personaje_desconectado(self, client, false);
@@ -526,7 +545,7 @@ void asignar_recurso_a_personaje(nivel_t_nivel* self,
 	t_recurso* recurso_asignado = list_find(personaje->recursos_asignados,
 			(void*) es_el_recurso);
 
-	if (recurso_asignado == NULL) {
+	if (recurso_asignado == NULL ) {
 		recurso_asignado = recurso_clone(recurso);
 		recurso_asignado->cantidad = 1;
 		list_add(personaje->recursos_asignados, recurso_asignado);
@@ -571,7 +590,7 @@ void nivel_bloquear_personaje(nivel_t_personaje* personaje, t_recurso* recurso) 
 }
 
 void nivel_desbloquear_personaje(nivel_t_personaje* personaje) {
-	if (personaje->simbolo_recurso_esperado != NULL) {
+	if (personaje->simbolo_recurso_esperado != NULL ) {
 		free(personaje->simbolo_recurso_esperado);
 		personaje->simbolo_recurso_esperado = NULL;
 	}
@@ -624,20 +643,20 @@ void nivel_asignar_recursos_liberados(nivel_t_nivel* self,
 		t_recurso* el_recurso = list_find(self->recursos,
 				(void*) es_el_recurso);
 
-		if (el_personaje != NULL && el_recurso != NULL) {
+		if (el_personaje != NULL && el_recurso != NULL ) {
 			asignar_recurso_a_personaje(self, el_personaje, el_recurso);
 			el_recurso->cantidad--;
 			mapa_update_recurso(self->mapa, el_recurso->simbolo,
 					el_recurso->cantidad);
 
-			if ((el_personaje->simbolo_recurso_esperado == NULL)
-					|| (el_personaje->simbolo_recurso_esperado[0]
-							!= el_recurso->simbolo)) {
+			if ((el_personaje->simbolo_recurso_esperado == NULL )
+			|| (el_personaje->simbolo_recurso_esperado[0]
+					!= el_recurso->simbolo)){
 
-				nivel_loguear(log_debug, self,
-						"Algo raro pasó, porque el personaje no estaba bloqueado");
+			nivel_loguear(log_debug, self,
+					"Algo raro pasó, porque el personaje no estaba bloqueado");
 
-			}
+		}
 			nivel_desbloquear_personaje(el_personaje);
 			nivel_loguear(log_debug, self,
 					"Se asigno 1 instancias del recurso %s al persoanje %c",

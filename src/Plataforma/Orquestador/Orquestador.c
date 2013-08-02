@@ -14,6 +14,8 @@
 #include "../../common/list.h"
 #include "../Planificador/Planificador.h"
 #include "../../common/common_structs.h"
+#include <unistd.h>
+#include <commons/config.h>
 
 #define PUERTO_ORQUESTADOR 5000
 
@@ -26,13 +28,13 @@ void* orquestador(void* plat) {
 
 		t_mensaje* mensaje = mensaje_recibir(client);
 
-		if (mensaje == NULL) {
+		if (mensaje == NULL ) {
 			sockets_destroyClient(client);
 			pthread_mutex_lock(&plataforma->logger_mutex);
 			log_warning(plataforma->logger,
 					"Orquestador: Error al recibir datos en el accept");
 			pthread_mutex_unlock(&plataforma->logger_mutex);
-			return NULL;
+			return NULL ;
 		}
 
 		int tipo_mensaje = mensaje->type;
@@ -50,7 +52,7 @@ void* orquestador(void* plat) {
 			if (!procesar_handshake_nivel(self, client, plataforma)) {
 				orquestador_send_error_message("Error al procesar el handshake",
 						client);
-				return NULL;
+				return NULL ;
 			}
 			break;
 		default:
@@ -60,7 +62,7 @@ void* orquestador(void* plat) {
 					tipo_mensaje);
 			pthread_mutex_unlock(&plataforma->logger_mutex);
 			orquestador_send_error_message("Request desconocido", client);
-			return NULL;
+			return NULL ;
 		}
 
 		return client;
@@ -70,7 +72,7 @@ void* orquestador(void* plat) {
 
 		t_mensaje* mensaje = mensaje_recibir(client);
 
-		if (mensaje == NULL) {
+		if (mensaje == NULL ) {
 			pthread_mutex_lock(&plataforma->logger_mutex);
 			log_debug(plataforma->logger,
 					"Orquestador: Mensaje recibido NULL.");
@@ -88,7 +90,7 @@ void* orquestador(void* plat) {
 
 	sockets_create_little_server(plataforma->ip, self->puerto,
 			plataforma->logger, &plataforma->logger_mutex, "Orquestador",
-			self->servers, self->clients, &acceptClosure, &recvClosure, NULL);
+			self->servers, self->clients, &acceptClosure, &recvClosure, NULL );
 
 	orquestador_destroy(self);
 
@@ -132,6 +134,16 @@ void process_request(t_mensaje* request, t_socket_client* client,
 				"Orquestador: El personaje en el socket %d ha finalizado el nivel",
 				client->socket->desc);
 		pthread_mutex_unlock(&plataforma->logger_mutex);
+
+		if (!hay_personajes_jugando(plataforma)) {
+			pthread_mutex_lock(&plataforma->logger_mutex);
+			log_info(plataforma->logger,
+					"Orquestador: Todos los personajes terminaron los niveles.");
+			pthread_mutex_unlock(&plataforma->logger_mutex);
+
+			ejecutar_koopa(plataforma);
+		}
+
 		break;
 	case M_RECURSOS_LIBERADOS:
 		orquestador_liberar_recursos(plataforma, client,
@@ -158,7 +170,7 @@ void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client,
 	plataforma_t_nivel* el_nivel = plataforma_get_nivel_by_nombre(plataforma,
 			nivel_pedido);
 
-	if (el_nivel == NULL) {
+	if (el_nivel == NULL ) {
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_error(plataforma->logger, "Orquestador: Nivel inválido: %s",
 				nivel_pedido);
@@ -199,7 +211,7 @@ bool procesar_handshake_nivel(t_orquestador* self,
 
 	mensaje = mensaje_recibir(socket_nivel);
 
-	if (mensaje == NULL) {
+	if (mensaje == NULL ) {
 		sockets_destroyClient(socket_nivel);
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_warning(plataforma->logger,
@@ -259,7 +271,7 @@ void verificar_nivel_desconectado(t_plataforma* plataforma,
 	plataforma_t_nivel* nivel_desconectado = list_find(plataforma->niveles,
 			(void*) es_el_nivel);
 
-	if (nivel_desconectado != NULL) {
+	if (nivel_desconectado != NULL ) {
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_info(plataforma->logger,
 				"Orquestador: El nivel %s se ha desconectado",
@@ -315,7 +327,7 @@ planificador_t_personaje* orquestador_seleccionar_victima(
 		planificador_t_personaje* el_personaje =
 				buscar_personaje_bloqueado_by_id(nivel->planificador, id[0]);
 
-		if (el_personaje != NULL) {
+		if (el_personaje != NULL ) {
 			list_add(personajes, el_personaje);
 		}
 	}
@@ -358,7 +370,7 @@ void orquestador_liberar_recursos(t_plataforma* plataforma,
 			planificador_t_personaje* personaje_desbloqueado =
 					planificador_recurso_liberado(plataforma,
 							nivel->planificador, elem->simbolo);
-			if (personaje_desbloqueado != NULL) {
+			if (personaje_desbloqueado != NULL ) {
 				char* asignacion = string_from_format("%c%c,",
 						personaje_desbloqueado->id, elem->simbolo);
 				string_append(&recursos_asignados,
@@ -388,10 +400,10 @@ t_list* parsear_recursos(char* recursos_str) {
 			strlen(recursos_str) - 1);
 	char** recursos_arr = string_split(recursos_str2, ",");
 	int index = 0;
-	while (recursos_arr[index] != NULL) {
+	while (recursos_arr[index] != NULL ) {
 		char* recurso = recursos_arr[index];
 		list_add(recursos,
-				recurso_create(NULL, recurso[0], atoi(recurso + 1), NULL));
+				recurso_create(NULL, recurso[0], atoi(recurso + 1), NULL ));
 		index++;
 	}
 
@@ -416,4 +428,65 @@ void orquestador_informar_victima_al_nivel(t_plataforma* plataforma,
 			string_duplicate(victima_str), strlen(victima_str) + 1,
 			socket_nivel);
 	free(victima_str);
+}
+
+bool hay_personajes_jugando(t_plataforma* plataforma) {
+
+	bool hay_personajes = false;
+
+	void hay_personajes_en_nivel(plataforma_t_nivel* nivel) {
+		if (!hay_personajes) {
+			if (nivel->planificador->personaje_ejecutando != NULL ) {
+				hay_personajes = true;
+			}
+
+			if (!queue_is_empty(nivel->planificador->personajes_ready)) {
+				hay_personajes = true;
+			}
+
+			void personajes_bloqueados(char* key, t_queue* queue) {
+				if (!queue_is_empty(queue)) {
+					hay_personajes = true;
+				}
+			}
+
+			dictionary_iterator(nivel->planificador->personajes_blocked,
+					(void*) personajes_bloqueados);
+		}
+	}
+
+	list_iterate(plataforma->niveles, (void*) hay_personajes_en_nivel);
+
+	return hay_personajes;
+}
+
+void ejecutar_koopa(t_plataforma* plataforma) {
+	pthread_mutex_lock(&plataforma->logger_mutex);
+	log_info(plataforma->logger,
+			"Orquestador: Juntando fuerzas para enfrentar a koopa.");
+	pthread_mutex_unlock(&plataforma->logger_mutex);
+
+	t_config* config = config_create(plataforma->config_path);
+	if (!config_has_property(config, "dondeEstaKoopa") ||
+		!config_has_property(config, "koopaParamPath")) {
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_warning(plataforma->logger,
+				"El path de koopa o de sus parametros no se encuentra en la configuracion.");
+		pthread_mutex_unlock(&plataforma->logger_mutex);
+		config_destroy(config);
+		return;
+	}
+
+	char* donde_esta_koopa = strdup(
+			config_get_string_value(config, "dondeEstaKoopa"));
+
+	char* koopa_param = strdup(
+			config_get_string_value(config, "koopaParamPath"));
+
+	config_destroy(config);
+
+	plataforma_destroy(plataforma);
+	execl(donde_esta_koopa, "koopa", koopa_param, NULL);
+	free(donde_esta_koopa);
+	free(koopa_param);
 }

@@ -2,16 +2,13 @@
 #include <stdlib.h>
 
 void mapa_createItem(ITEM_NIVEL** listaItems, char id, int x , int y, char tipo, int cant_rec);
-bool mapa_contiene(t_mapa* self, int x, int y);
 
-t_mapa* mapa_create(int rows, int columns){
+t_mapa* mapa_create(){
 	nivel_gui_inicializar();
-	nivel_gui_get_area_nivel(&rows, &columns);
 
 	t_mapa* self = malloc(sizeof(t_mapa));
-	self->rows = rows;
-	self->colums = columns;
 	self->items = NULL;
+	nivel_gui_get_area_nivel(&self->colums, &self->rows);
 	return self;
 }
 

@@ -12,9 +12,6 @@
 #include "Mapa.h"
 #include "../common/Recurso.h"
 
-#define NIVEL_CONFIG_COLUMNAS "cantidadColumnasMapa"
-#define NIVEL_CONFIG_FILAS "cantidadFilasMapa"
-
 typedef struct {
 	char* nombre;
 	t_list* recursos;

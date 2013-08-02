@@ -40,5 +40,7 @@ void orquestador_matar_personaje(t_plataforma* plataforma,
 		planificador_t_personaje* victima);
 void orquestador_informar_victima_al_nivel(t_plataforma* plataforma,
 		planificador_t_personaje* victima, t_socket_client* tsocket_nivel);
+void ejecutar_koopa(t_plataforma* plataforma);
+bool hay_personajes_jugando(t_plataforma* plataforma);
 
 #endif /* ORQUESTADOR_H_ */
