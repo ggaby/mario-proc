@@ -125,7 +125,7 @@ plataforma_t_nivel* plataforma_get_nivel_by_nombre(t_plataforma* self, char* nom
 }
 
 bool verificar_argumentos(int argc, char* argv[]) {
-	if (argc < 2) {//TODO: Ver sino seria mas feliz ==
+	if (argc < 2) {
 		printf("Error en la cantidad de argumentos.\n");
 		return false;
 	}

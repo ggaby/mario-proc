@@ -64,5 +64,7 @@ void nivel_asignar_recursos_liberados(nivel_t_nivel* self,
 		char* recursos_asignados_str, t_socket_client* client);
 char** parsear_recursos_asignados(char* recursos_str);
 void procesar_victima_seleccionada(nivel_t_nivel* self, char* victima);
+void verificar_orquestador_desconectado(nivel_t_nivel* self,
+		t_socket_client* client);
 
 #endif /* NIVEL_H_ */

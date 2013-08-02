@@ -92,6 +92,7 @@ int main(int argc, char *argv[]) {
 		if (mensaje == NULL) {
 			nivel_loguear(log_warning, self, "Mensaje recibido NULL.");
 			verificar_personaje_desconectado(self, client, false);
+			verificar_orquestador_desconectado(self, client);
 			return false;
 		}
 
@@ -660,4 +661,14 @@ char** parsear_recursos_asignados(char* recursos_str) {
 
 void procesar_victima_seleccionada(nivel_t_nivel* self, char* victima) {
 	nivel_loguear(log_info, self, "La víctima seleccionada fue: %s", victima);
+}
+
+void verificar_orquestador_desconectado(nivel_t_nivel* self,
+		t_socket_client* client) {
+	if (sockets_equalsClients(client, self->socket_orquestador)) {
+		nivel_loguear(log_error, self,
+				"El orquestador se ha desconectado... se acabó la joda");
+		nivel_destroy(self);
+		exit(EXIT_FAILURE);
+	}
 }
