@@ -376,7 +376,7 @@ void nivel_mover_personaje(nivel_t_nivel* self, t_posicion* posicion,
 						posicion->x, posicion->y, personaje->id);
 
 		mensaje_create_and_send(M_ERROR, string_duplicate(mensaje_error),
-				strlen(mensaje_error), client);
+				strlen(mensaje_error) + 1, client);
 
 		free(mensaje_error);
 		return;
