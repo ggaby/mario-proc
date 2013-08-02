@@ -457,8 +457,8 @@ void planificador_reload_config(t_planificador* self, t_socket_client* client,
 
 	pthread_mutex_lock(&plataforma->logger_mutex);
 	log_info(plataforma->logger,
-			"%s: Nuevo Quantum: %d, Nuevo tiempo de sleep: %d", self->log_name,
-			self->quantum_total, self->tiempo_sleep / 1000000);
+			"%s: Nuevo Quantum: %d, Nuevo tiempo de sleep: %.2f", self->log_name,
+			self->quantum_total, self->tiempo_sleep / 1000000.0);
 	pthread_mutex_unlock(&plataforma->logger_mutex);
 }
 
