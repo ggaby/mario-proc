@@ -67,5 +67,6 @@ void personaje_avisar_fin_de_nivel(t_personaje* self);
 void morir(t_personaje* self, char* motivo);
 void limpiar_estado_nivel(t_personaje* self);
 void avisar_muerte_a_nivel(t_personaje* self);
+void comer_honguito_verde(t_personaje* self);
 
 #endif /* PERSONAJE_H_ */

@@ -181,6 +181,7 @@ int sockets_connect(t_socket_client *client, char *server_ip, int server_port) {
 	if (connect(client->socket->desc,
 			(struct sockaddr *) client->serv_socket->my_addr,
 			sizeof(struct sockaddr_in)) == -1) {
+		perror("connect");
 		sockets_destroy(client->serv_socket);
 		client->serv_socket = NULL;
 		return 0;
@@ -262,6 +263,9 @@ int sockets_recvInBuffer(t_socket_client *client, t_socket_buffer *buffer) {
 	}
 	buffer->size = recv(client->socket->desc, buffer->data, 3,
 			MSG_PEEK | MSG_WAITALL);
+	if(buffer->size == -1) {
+		return buffer->size;
+	}
 	uint16_t size_payload;
 	memcpy(&size_payload, buffer->data + 1, 2);
 	buffer->size = recv(client->socket->desc, buffer->data, size_payload + 3,

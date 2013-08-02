@@ -38,13 +38,26 @@ int main(int argc, char* argv[]) {
 		morir(self, "Muerte por señal");
 	}
 
+	void sigusr1_handler(int signum) {
+		comer_honguito_verde(self);
+	}
+
 	struct sigaction sigterm_action;
 
 	sigterm_action.sa_handler = sigterm_handler;
 	sigemptyset(&sigterm_action.sa_mask);
-	//sigterm_action.sa_flags = SA_RESTART; /* Restart functions if
 	if (sigaction(SIGTERM, &sigterm_action, NULL) == -1) {
 		log_error(self->logger, "Error al querer setear la señal SIGTERM");
+		return EXIT_FAILURE;
+	}
+
+	struct sigaction sigusr1_action;
+
+	sigusr1_action.sa_handler = sigusr1_handler;
+	sigusr1_action.sa_flags = SA_RESTART;
+	sigemptyset(&sigusr1_action.sa_mask);
+	if (sigaction(SIGUSR1, &sigusr1_action, NULL) == -1) {
+		log_error(self->logger, "Error al querer setear la señal SIGUSR1");
 		return EXIT_FAILURE;
 	}
 
@@ -450,6 +463,7 @@ bool personaje_jugar_nivel(t_personaje* self) {
 
 		if (self->posicion_objetivo == NULL) {
 			free(self->objetivo_actual);
+			self->objetivo_actual = NULL;
 			return false;
 		}
 
@@ -457,12 +471,18 @@ bool personaje_jugar_nivel(t_personaje* self) {
 				|| self->is_blocked) {
 
 			if (!realizar_movimiento(self)) {
+				if (reiniciar_nivel || reiniciar_flan) {
+					avisar_muerte_a_nivel(self);
+					return false;
+				}
 				free(self->objetivo_actual);
+				self->objetivo_actual = NULL;
 				return false;
 			}
 
 			if (!finalizar_turno(self, self->objetivo_actual)) {
 				free(self->objetivo_actual);
+				self->objetivo_actual = NULL;
 				return false;
 			}
 
@@ -510,6 +530,9 @@ bool realizar_movimiento(t_personaje* self) {
 			self->nivel_actual->socket_planificador);
 
 	if (notificacion_movimiento == NULL) {
+		if (reiniciar_flan || reiniciar_nivel) { //La syscall salió por el EINTR de la señal
+			return false;
+		}
 		log_error(self->logger,
 				"Personaje %s: El planificador se ha desconectado.",
 				self->nombre);
@@ -686,9 +709,12 @@ void limpiar_estado_nivel(t_personaje* self) {
 
 	if (self->objetivo_actual != NULL) {
 		free(self->objetivo_actual);
+		self->objetivo_actual = NULL;
 	}
 
 	self->objetivo_actual_index = 0;
+	self->is_blocked = false;
+	sleep(2);
 }
 
 void avisar_muerte_a_nivel(t_personaje* self) {
@@ -700,4 +726,13 @@ void avisar_muerte_a_nivel(t_personaje* self) {
 			self->nivel_actual->socket_nivel);
 
 	limpiar_estado_nivel(self);
+}
+
+void comer_honguito_verde(t_personaje* self) {
+	log_info(self->logger,
+			"Personaje %s: Llegó un honguito de esos que pegan ;)",
+			self->nombre);
+	self->vidas++;
+	log_info(self->logger, "Personaje %s: Ahora tengo %d vidas", self->nombre,
+			self->vidas);
 }

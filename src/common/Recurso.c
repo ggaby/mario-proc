@@ -12,7 +12,7 @@
 t_recurso* recurso_create(char* nombre, char simbolo, int cantidad,
 		t_posicion* posicion) {
 	t_recurso* new = malloc(sizeof(t_recurso));
-	if (nombre != NULL ) {
+	if (nombre != NULL) {
 		new->nombre = string_duplicate(nombre);
 	} else {
 		new->nombre = NULL;
@@ -35,8 +35,12 @@ t_recurso* recurso_from_config_string(char* config_string) {
 }
 
 void recurso_destroy(t_recurso* self) {
-	free(self->nombre);
-	posicion_destroy(self->posicion);
+	if (self->nombre != NULL) {
+		free(self->nombre);
+	}
+	if (self->posicion != NULL) {
+		posicion_destroy(self->posicion);
+	}
 	free(self);
 }
 
@@ -48,5 +52,5 @@ t_recurso* recurso_clone(t_recurso* recurso) {
 }
 
 bool recurso_equals(t_recurso* one, t_recurso* other) {
-	return string_equals_ignore_case(one->nombre, other->nombre);
+	return one->simbolo == other->simbolo;
 }

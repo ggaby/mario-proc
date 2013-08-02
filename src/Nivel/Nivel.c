@@ -641,11 +641,14 @@ void nivel_asignar_recursos_liberados(nivel_t_nivel* self,
 	}
 
 	string_iterate_lines(asignaciones, (void*) buscar_y_asignar);
+	free(recursos_asignados_str);
 	array_destroy(asignaciones);
 }
 
 char** parsear_recursos_asignados(char* recursos_str) {
 	char* recursos_str2 = string_substring(recursos_str, 0,
 			strlen(recursos_str) - 1);
-	return string_split(recursos_str2, ",");
+	char** recursos_asignados = string_split(recursos_str2, ",");
+	free(recursos_str2);
+	return recursos_asignados;
 }
