@@ -8,4 +8,4 @@ vidas=3
 orquestador=127.0.0.1:5000
 puerto=4000
 logFile=goomba.log
-logLevel=TRACE
+logLevel=INFO
