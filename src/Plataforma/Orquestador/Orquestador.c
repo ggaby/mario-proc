@@ -524,7 +524,7 @@ void ejecutar_koopa(t_plataforma* plataforma) {
 
 	config_destroy(config);
 
-//	plataforma_destroy(plataforma);
+	plataforma_destroy(plataforma);
 	if(execl(donde_esta_koopa, "koopa", koopa_param, NULL )==-1){
 		perror("Error al ejecutar koopa");
 	}
