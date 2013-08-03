@@ -308,8 +308,6 @@ planificador_t_personaje* orquestador_seleccionar_victima(
 		char* ids_personajes_en_deadlock, t_plataforma* plataforma,
 		t_socket_client* socket_nivel) {
 
-//RETURN OSCAR;
-
 	plataforma_t_nivel* nivel = plataforma_get_nivel_by_socket(plataforma,
 			socket_nivel);
 
@@ -335,19 +333,50 @@ planificador_t_personaje* orquestador_seleccionar_victima(
 	string_iterate_lines(ids, (void*) buscar_y_agregar_en_lista);
 	array_destroy(ids);
 
+	int temporal_compare_to(char* t1, char* t2){
+		char** time1 = string_split(t1, ":");
+		char** time2 = string_split(t2, ":");
+
+		int index = 0;
+
+		while(time1[index] != NULL && time2[index] != NULL){
+			int v1 = atoi(time1[index]);
+			int v2 = atoi(time2[index]);
+
+			if(v1 < v2){
+				array_destroy(time1);
+				array_destroy(time2);
+				return -1;
+			}
+
+			if(v1 > v2){
+				array_destroy(time1);
+				array_destroy(time2);
+				return 1;
+			}
+
+			index++;
+		}
+
+		array_destroy(time1);
+		array_destroy(time2);
+
+		return 0;
+	}
+
 	bool comparator(planificador_t_personaje* p1, planificador_t_personaje* p2) {
-		return strcmp(p1->tiempo_llegada, p2->tiempo_llegada) == -1;
+		return temporal_compare_to(p1->tiempo_llegada, p2->tiempo_llegada)<0;
 	}
 
 	list_sort(personajes, (void*) comparator);
 
-	planificador_t_personaje* victima = list_get(personajes, 0);
+	planificador_t_personaje* oscar = list_get(personajes, 0);
 
 	pthread_mutex_lock(&plataforma->logger_mutex);
-	log_info(plataforma->logger, "Orquestador: victima: %c", victima->id);
+	log_info(plataforma->logger, "Orquestador: victima: %c", oscar->id);
 	pthread_mutex_unlock(&plataforma->logger_mutex);
 
-	return victima;
+	return oscar;
 
 }
 
