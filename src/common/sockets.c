@@ -263,7 +263,7 @@ int sockets_recvInBuffer(t_socket_client *client, t_socket_buffer *buffer) {
 	}
 	buffer->size = recv(client->socket->desc, buffer->data, 3,
 			MSG_PEEK | MSG_WAITALL);
-	if(buffer->size == -1) {
+	if (buffer->size == -1) {
 		return buffer->size;
 	}
 	uint16_t size_payload;
@@ -467,16 +467,25 @@ void sockets_destroyServer(t_socket_server* server) {
 		return false;
 	}
 
+	char* ip_to_show;
+	if (ip == NULL ) {
+		ip_to_show = strdup(sockets_getIp(server->socket));
+	} else {
+		ip_to_show = strdup(ip);
+	}
+
 	if (log_mutex != NULL ) {
 		pthread_mutex_lock(log_mutex);
 	}
 
 	log_info(logger, "%s: Escuchando conexiones entrantes en %s:%d", log_name,
-			ip, puerto);
+			ip_to_show, puerto);
 
 	if (log_mutex != NULL ) {
 		pthread_mutex_unlock(log_mutex);
 	}
+
+	free(ip_to_show);
 
 	list_add(servers, server);
 
@@ -504,6 +513,7 @@ void sockets_destroyServer(t_socket_server* server) {
 t_socket_client* sockets_conectar_a_servidor(char* mi_ip, int mi_puerto,
 		char* server_ip, int server_puerto, t_log* logger, int handshake_type,
 		char* handshake_msg, char* handshake_success, char* server_name) {
+
 	t_socket_client* socket_client = sockets_createClient(mi_ip, mi_puerto);
 
 	if (socket_client == NULL ) {
@@ -511,17 +521,29 @@ t_socket_client* sockets_conectar_a_servidor(char* mi_ip, int mi_puerto,
 		return NULL ;
 	}
 
+	char* mi_ip_to_show;
+	if (mi_ip == NULL ) {
+		mi_ip_to_show = strdup(sockets_getIp(socket_client->socket));
+	} else {
+		mi_ip_to_show = strdup(mi_ip);
+	}
+
 	if (sockets_connect(socket_client, server_ip, server_puerto) == 0) {
-		log_error(logger, "Error al conectar con %s", server_name);
+		log_error(logger, "%s:%d -> %s:%d Error al conectar con %s",
+				mi_ip_to_show, mi_puerto, server_ip, server_puerto,
+				server_name);
 		if (socket_client->serv_socket != NULL ) {
 			sockets_destroy(socket_client->serv_socket);
 		}
 		sockets_destroyClient(socket_client);
+		free(mi_ip_to_show);
 		return NULL ;
 	}
 
-	log_info(logger, "Conectando con %s...", server_name);
-	log_debug(logger, "Enviando handshake");
+	log_info(logger, "%s:%d -> %s:%d Conectando con %s...", mi_ip_to_show,
+			mi_puerto, server_ip, server_puerto, server_name);
+	log_debug(logger, "%s:%d -> %s:%d Enviando handshake a %s", mi_ip_to_show,
+			mi_puerto, server_ip, server_puerto, server_name);
 
 	mensaje_create_and_send(handshake_type, string_duplicate(handshake_msg),
 			strlen(handshake_msg) + 1, socket_client);
@@ -531,6 +553,7 @@ t_socket_client* sockets_conectar_a_servidor(char* mi_ip, int mi_puerto,
 	if (rta_handshake == NULL ) {
 		log_error(logger, "Error al recibir la respuesta del handshake");
 		sockets_destroyClient(socket_client);
+		free(mi_ip_to_show);
 		return NULL ;
 	}
 
@@ -540,12 +563,14 @@ t_socket_client* sockets_conectar_a_servidor(char* mi_ip, int mi_puerto,
 		log_error(logger, "Error en la respuesta del handshake");
 		mensaje_destroy(rta_handshake);
 		sockets_destroyClient(socket_client);
+		free(mi_ip_to_show);
 		return NULL ;
 	}
 
 	mensaje_destroy(rta_handshake);
 
-	log_info(logger, "Conectado con %s: Origen: 127.0.0.1:%d, Destino: %s:%d",
-			server_name, mi_puerto, server_ip, server_puerto);
+	log_info(logger, "Conectado con %s: Origen: %s:%d, Destino: %s:%d",
+			server_name, mi_ip_to_show, mi_puerto, server_ip, server_puerto);
+	free(mi_ip_to_show);
 	return socket_client;
 }

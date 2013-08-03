@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
 
 	nivel_t_nivel* self = nivel_create(argv[1]);
 
-	if(self == NULL){
+	if (self == NULL ) {
 		return EXIT_FAILURE;
 	}
 
@@ -50,17 +50,22 @@ int main(int argc, char *argv[]) {
 		t_mensaje* mensaje = mensaje_recibir(client);
 
 		if (mensaje == NULL ) {
-			sockets_destroyClient(client);
 			nivel_loguear(log_warning, self,
-					"Error al recibir datos en el accept");
+					"%s:%d -> Nivel - Error al recibir datos en el accept",
+					sockets_getIp(client->socket),
+					sockets_getPort(client->socket));
+			sockets_destroyClient(client);
 			return NULL ;
 		}
 
 		if (mensaje->type != M_HANDSHAKE_PERSONAJE
 				|| strcmp(mensaje->payload, PERSONAJE_HANDSHAKE) != 0) {
 			mensaje_destroy(mensaje);
+			nivel_loguear(log_warning, self,
+					"%s:%d -> Nivel - Handshake recibido inválido",
+					sockets_getIp(client->socket),
+					sockets_getPort(client->socket));
 			sockets_destroyClient(client);
-			nivel_loguear(log_warning, self, "Handshake recibido invalido.");
 			return NULL ;
 		}
 
@@ -94,7 +99,10 @@ int main(int argc, char *argv[]) {
 		t_mensaje* mensaje = mensaje_recibir(client);
 
 		if (mensaje == NULL ) {
-			nivel_loguear(log_warning, self, "Mensaje recibido NULL.");
+			nivel_loguear(log_warning, self,
+					"%s:%d -> Nivel - Mensaje recibido NULL",
+					sockets_getIp(client->socket),
+					sockets_getPort(client->socket));
 			verificar_personaje_desconectado(self, client, false);
 			verificar_orquestador_desconectado(self, client);
 			return false;
@@ -175,10 +183,10 @@ nivel_t_nivel* nivel_create(char* config_path) {
 
 	new->mapa = mapa_create();
 
-	if(!cargar_recursos_config(config, new)){
+	if (!cargar_recursos_config(config, new)) {
 		config_destroy(config);
 		nivel_destroy(new);
-		return NULL;
+		return NULL ;
 	}
 
 	config_destroy(config);
@@ -322,7 +330,6 @@ bool verificar_argumentos(int argc, char* argv[]) {
 }
 
 bool nivel_conectar_a_orquestador(nivel_t_nivel* self) {
-	//TODO a esta altura no se encuentra creado el thread de verificador_deadlock es necesario hacer toodo el refactor para usar el semaforo de log? :S
 	self->socket_orquestador = sockets_conectar_a_servidor(NULL, self->puerto,
 			self->orquestador_info->ip, self->orquestador_info->puerto,
 			self->logger, M_HANDSHAKE_NIVEL, NIVEL_HANDSHAKE, HANDSHAKE_SUCCESS,

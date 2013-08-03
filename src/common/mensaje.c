@@ -251,7 +251,7 @@ char* mensaje_get_simbolo_personaje(t_socket_client* socket_personaje,
 		if (log_mutex != NULL ) {
 			pthread_mutex_lock(log_mutex);
 		}
-		log_warning(logger, "Error recibiendo data del personaje.");
+		log_warning(logger, "Error al recibir la respuesta del personaje.");
 		if (log_mutex != NULL ) {
 			pthread_mutex_unlock(log_mutex);
 		}
