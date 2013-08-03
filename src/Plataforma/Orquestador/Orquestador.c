@@ -28,13 +28,15 @@ void* orquestador(void* plat) {
 
 		t_mensaje* mensaje = mensaje_recibir(client);
 
-		if (mensaje == NULL ) {
+		if (mensaje == NULL) {
 			sockets_destroyClient(client);
 			pthread_mutex_lock(&plataforma->logger_mutex);
 			log_warning(plataforma->logger,
-					"Orquestador: Error al recibir datos en el accept");
+					"%s:%d -> Orquestador - Error al recibir datos en el accept",
+					sockets_getIp(client->socket),
+					sockets_getPort(client->socket));
 			pthread_mutex_unlock(&plataforma->logger_mutex);
-			return NULL ;
+			return NULL;
 		}
 
 		int tipo_mensaje = mensaje->type;
@@ -52,17 +54,21 @@ void* orquestador(void* plat) {
 			if (!procesar_handshake_nivel(self, client, plataforma)) {
 				orquestador_send_error_message("Error al procesar el handshake",
 						client);
-				return NULL ;
+				return NULL;
 			}
 			break;
 		default:
 			pthread_mutex_lock(&plataforma->logger_mutex);
-			log_warning(plataforma->logger,
-					"Orquestador: Error al recibir el handshake, tipo de mensaje no valido %d",
+			char* error_msg = string_from_format(
+					"Tipo del mensaje recibido no válido tipo: %d",
 					tipo_mensaje);
+			log_warning(plataforma->logger, error_msg);
+			mensaje_create_and_send(M_ERROR, string_duplicate(error_msg),
+					strlen(error_msg) + 1, client);
+			free(error_msg);
 			pthread_mutex_unlock(&plataforma->logger_mutex);
 			orquestador_send_error_message("Request desconocido", client);
-			return NULL ;
+			return NULL;
 		}
 
 		return client;
@@ -72,16 +78,17 @@ void* orquestador(void* plat) {
 
 		t_mensaje* mensaje = mensaje_recibir(client);
 
-		if (mensaje == NULL ) {
+		if (mensaje == NULL) {
 			pthread_mutex_lock(&plataforma->logger_mutex);
 			log_debug(plataforma->logger,
-					"Orquestador: Mensaje recibido NULL.");
+					"%s:%d -> Nivel - Mensaje recibido NULL",
+					sockets_getIp(client->socket),
+					sockets_getPort(client->socket));
 			pthread_mutex_unlock(&plataforma->logger_mutex);
 			verificar_nivel_desconectado(plataforma, client);
 			return false;
 		}
 
-		mostrar_mensaje(mensaje, client);
 		process_request(mensaje, client, plataforma);
 
 		mensaje_destroy(mensaje);
@@ -90,7 +97,7 @@ void* orquestador(void* plat) {
 
 	sockets_create_little_server(plataforma->ip, self->puerto,
 			plataforma->logger, &plataforma->logger_mutex, "Orquestador",
-			self->servers, self->clients, &acceptClosure, &recvClosure, NULL );
+			self->servers, self->clients, &acceptClosure, &recvClosure, NULL);
 
 	orquestador_destroy(self);
 
@@ -170,14 +177,17 @@ void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client,
 	plataforma_t_nivel* el_nivel = plataforma_get_nivel_by_nombre(plataforma,
 			nivel_pedido);
 
-	if (el_nivel == NULL ) {
-		pthread_mutex_lock(&plataforma->logger_mutex);
-		log_error(plataforma->logger, "Orquestador: Nivel inválido: %s",
+	if (el_nivel == NULL) {
+		char* error_msg = string_from_format("Nivel inválido: %s",
 				nivel_pedido);
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_error(plataforma->logger, "Orquestador -> Personaje: %s",
+				error_msg);
 		pthread_mutex_unlock(&plataforma->logger_mutex);
 
 		free(nivel_pedido);
-		orquestador_send_error_message("Nivel inválido", client);
+		orquestador_send_error_message(error_msg, client);
+		free(error_msg);
 		return;
 	}
 
@@ -186,6 +196,11 @@ void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client,
 	t_stream* response_data = get_info_nivel_response_create_serialized(
 			el_nivel->connection_info, el_nivel->planificador->connection_info);
 
+	pthread_mutex_lock(&plataforma->logger_mutex);
+	log_info(plataforma->logger,
+			"Orquestador -> Personaje: Enviando información de nivel %s",
+			nivel_pedido);
+	pthread_mutex_unlock(&plataforma->logger_mutex);
 	mensaje_setdata(response, response_data->data, response_data->length);
 	mensaje_send(response, client);
 	mensaje_destroy(response);
@@ -211,11 +226,11 @@ bool procesar_handshake_nivel(t_orquestador* self,
 
 	mensaje = mensaje_recibir(socket_nivel);
 
-	if (mensaje == NULL ) {
+	if (mensaje == NULL) {
 		sockets_destroyClient(socket_nivel);
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_warning(plataforma->logger,
-				"Orquestador: Error al recibir el nombre del nivel");
+				"Orquestador -> Nivel - Handshake recibido inválido");
 		pthread_mutex_unlock(&plataforma->logger_mutex);
 		return false;
 	}
@@ -224,8 +239,8 @@ bool procesar_handshake_nivel(t_orquestador* self,
 		sockets_destroyClient(socket_nivel);
 		mensaje_destroy(mensaje);
 		pthread_mutex_lock(&plataforma->logger_mutex);
-		log_error(plataforma->logger,
-				"Orquestador: Tipo de respuesta inválido");
+		log_warning(plataforma->logger,
+				"Orquestador -> Nivel - Handshake recibido inválido");
 		pthread_mutex_unlock(&plataforma->logger_mutex);
 		return false;
 	}
@@ -254,13 +269,6 @@ bool procesar_handshake_nivel(t_orquestador* self,
 	return true;
 }
 
-void mostrar_mensaje(t_mensaje* mensaje, t_socket_client* client) {
-	printf("Mensaje recibido del socket: %d\n", client->socket->desc);
-	printf("TYPE: %d\n", mensaje->type);
-	printf("LENGHT: %d\n", mensaje->length);
-	printf("PAYLOAD: %s\n", (char*) mensaje->payload);
-}
-
 void verificar_nivel_desconectado(t_plataforma* plataforma,
 		t_socket_client* client) {
 
@@ -271,7 +279,7 @@ void verificar_nivel_desconectado(t_plataforma* plataforma,
 	plataforma_t_nivel* nivel_desconectado = list_find(plataforma->niveles,
 			(void*) es_el_nivel);
 
-	if (nivel_desconectado != NULL ) {
+	if (nivel_desconectado != NULL) {
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_info(plataforma->logger,
 				"Orquestador: El nivel %s se ha desconectado",
@@ -325,7 +333,7 @@ planificador_t_personaje* orquestador_seleccionar_victima(
 		planificador_t_personaje* el_personaje =
 				buscar_personaje_bloqueado_by_id(nivel->planificador, id[0]);
 
-		if (el_personaje != NULL ) {
+		if (el_personaje != NULL) {
 			list_add(personajes, el_personaje);
 		}
 	}
@@ -333,23 +341,23 @@ planificador_t_personaje* orquestador_seleccionar_victima(
 	string_iterate_lines(ids, (void*) buscar_y_agregar_en_lista);
 	array_destroy(ids);
 
-	int temporal_compare_to(char* t1, char* t2){
+	int temporal_compare_to(char* t1, char* t2) {
 		char** time1 = string_split(t1, ":");
 		char** time2 = string_split(t2, ":");
 
 		int index = 0;
 
-		while(time1[index] != NULL && time2[index] != NULL){
+		while (time1[index] != NULL && time2[index] != NULL) {
 			int v1 = atoi(time1[index]);
 			int v2 = atoi(time2[index]);
 
-			if(v1 < v2){
+			if (v1 < v2) {
 				array_destroy(time1);
 				array_destroy(time2);
 				return -1;
 			}
 
-			if(v1 > v2){
+			if (v1 > v2) {
 				array_destroy(time1);
 				array_destroy(time2);
 				return 1;
@@ -365,7 +373,7 @@ planificador_t_personaje* orquestador_seleccionar_victima(
 	}
 
 	bool comparator(planificador_t_personaje* p1, planificador_t_personaje* p2) {
-		return temporal_compare_to(p1->tiempo_llegada, p2->tiempo_llegada)<0;
+		return temporal_compare_to(p1->tiempo_llegada, p2->tiempo_llegada) < 0;
 	}
 
 	list_sort(personajes, (void*) comparator);
@@ -399,7 +407,7 @@ void orquestador_liberar_recursos(t_plataforma* plataforma,
 			planificador_t_personaje* personaje_desbloqueado =
 					planificador_recurso_liberado(plataforma,
 							nivel->planificador, elem->simbolo);
-			if (personaje_desbloqueado != NULL ) {
+			if (personaje_desbloqueado != NULL) {
 				char* asignacion = string_from_format("%c%c,",
 						personaje_desbloqueado->id, elem->simbolo);
 				string_append(&recursos_asignados,
@@ -429,10 +437,10 @@ t_list* parsear_recursos(char* recursos_str) {
 			strlen(recursos_str) - 1);
 	char** recursos_arr = string_split(recursos_str2, ",");
 	int index = 0;
-	while (recursos_arr[index] != NULL ) {
+	while (recursos_arr[index] != NULL) {
 		char* recurso = recursos_arr[index];
 		list_add(recursos,
-				recurso_create(NULL, recurso[0], atoi(recurso + 1), NULL ));
+				recurso_create(NULL, recurso[0], atoi(recurso + 1), NULL));
 		index++;
 	}
 
@@ -465,7 +473,7 @@ bool hay_personajes_jugando(t_plataforma* plataforma) {
 
 	void hay_personajes_en_nivel(plataforma_t_nivel* nivel) {
 		if (!hay_personajes) {
-			if (nivel->planificador->personaje_ejecutando != NULL ) {
+			if (nivel->planificador->personaje_ejecutando != NULL) {
 				hay_personajes = true;
 			}
 
@@ -496,8 +504,8 @@ void ejecutar_koopa(t_plataforma* plataforma) {
 	pthread_mutex_unlock(&plataforma->logger_mutex);
 
 	t_config* config = config_create(plataforma->config_path);
-	if (!config_has_property(config, "dondeEstaKoopa") ||
-		!config_has_property(config, "koopaParamPath")) {
+	if (!config_has_property(config, "dondeEstaKoopa")
+			|| !config_has_property(config, "koopaParamPath")) {
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_warning(plataforma->logger,
 				"El path de koopa o de sus parametros no se encuentra en la configuracion.");
