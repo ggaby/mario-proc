@@ -19,7 +19,6 @@ void orquestador_destroy(t_orquestador* self);
 void* orquestador(void* plat);
 bool procesar_handshake_nivel(t_orquestador* self,
 		t_socket_client* socket_nivel, t_plataforma* plataforma);
-void mostrar_mensaje(t_mensaje* mensaje, t_socket_client* client);
 void process_request(t_mensaje* request, t_socket_client* client,
 		t_plataforma* plataforma);
 void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client,
@@ -41,6 +40,6 @@ void orquestador_matar_personaje(t_plataforma* plataforma,
 void orquestador_informar_victima_al_nivel(t_plataforma* plataforma,
 		planificador_t_personaje* victima, t_socket_client* tsocket_nivel);
 void ejecutar_koopa(t_plataforma* plataforma);
-bool hay_personajes_jugando(t_plataforma* plataforma);
+bool hay_personajes_jugando(t_orquestador* self);
 
 #endif /* ORQUESTADOR_H_ */

@@ -1,5 +1,5 @@
 quantum=3
-tiempoEntreMovimientos=0.5
+tiempoEntreMovimientos=0.01
 ip=127.0.0.1
-dondeEstaKoopa=/home/utnso/tp-20131c-ahrelocoooo/Exec
-koopaParamPath=/home/utnso/tp-20131c-ahrelocoooo/Config/Esquema1/esquema1.koopa
+dondeEstaKoopa=/home/utnso/workspace/tp-20131c-ahrelocoooo/src/Memoria/koopa
+koopaParamPath=/home/utnso/workspace/tp-20131c-ahrelocoooo/Config/Esquema1/esquema1.koopa

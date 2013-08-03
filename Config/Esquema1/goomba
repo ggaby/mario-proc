@@ -6,6 +6,6 @@ obj[Level3-1]=[B,R,B]
 obj[Level8-8]=[E,C,H]
 vidas=3
 orquestador=127.0.0.1:5000
-puerto=5005
+puerto=4000
 logFile=goomba.log
 logLevel=TRACE

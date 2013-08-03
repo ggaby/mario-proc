@@ -49,7 +49,7 @@
 #define M_MUERTE_PERSONAJE 57
 #define M_MORITE_GIL 58
 #define M_VICTIMA_SELECCIONADA 59
-
+#define M_FIN_PLAN_DE_NIVELES 60
 //Contenidos de Mensajes
 #define PERSONAJE_HANDSHAKE "Aquí un personaje"
 #define NIVEL_HANDSHAKE "Aqui un nivel"

@@ -6,6 +6,6 @@ obj[Level3-1]=[B,T,B,R,T]
 obj[Level2-1]=[C,F,C,F,C,F,C,F,C,F]
 vidas=5
 orquestador=127.0.0.1:5000
-puerto=5005
+puerto=4004
 logFile=tortuga.log
 logLevel=TRACE

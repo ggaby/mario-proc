@@ -19,6 +19,10 @@
 
 #define PUERTO_ORQUESTADOR 5000
 
+void personaje_termino_plan_de_niveles(t_orquestador* self, char* id_personaje);
+void orquestador_guardar_personaje(t_orquestador* self, t_socket_client* client,
+		t_plataforma* plataforma);
+
 void* orquestador(void* plat) {
 	t_plataforma* plataforma = (t_plataforma*) plat;
 	t_orquestador* self = orquestador_create(PUERTO_ORQUESTADOR, plataforma);
@@ -45,6 +49,7 @@ void* orquestador(void* plat) {
 		case M_HANDSHAKE_PERSONAJE:
 			responder_handshake(client, plataforma->logger,
 					&plataforma->logger_mutex, "Orquestador");
+			orquestador_guardar_personaje(self, client, plataforma);
 			break;
 		case M_HANDSHAKE_NIVEL:
 			responder_handshake(client, plataforma->logger,
@@ -81,7 +86,6 @@ void* orquestador(void* plat) {
 			return false;
 		}
 
-		mostrar_mensaje(mensaje, client);
 		process_request(mensaje, client, plataforma);
 
 		mensaje_destroy(mensaje);
@@ -108,6 +112,7 @@ t_orquestador* orquestador_create(int puerto, t_plataforma* plataforma) {
 	new->planificadores_count = 0;
 	new->clients = list_create();
 	new->servers = list_create();
+	new->personajes = list_create();
 	plataforma->orquestador = new;
 	return new;
 }
@@ -117,6 +122,7 @@ void orquestador_destroy(t_orquestador* self) {
 			(void *) sockets_destroyClient);
 	list_destroy_and_destroy_elements(self->servers,
 			(void *) sockets_destroyServer);
+	list_destroy(self->personajes);
 	free(self);
 }
 
@@ -134,8 +140,18 @@ void process_request(t_mensaje* request, t_socket_client* client,
 				"Orquestador: El personaje en el socket %d ha finalizado el nivel",
 				client->socket->desc);
 		pthread_mutex_unlock(&plataforma->logger_mutex);
+		break;
 
-		if (!hay_personajes_jugando(plataforma)) {
+	case M_FIN_PLAN_DE_NIVELES:
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_info(plataforma->logger,
+				"Orquestador: El personaje en el socket %d ha finalizado su plan de niveles.",
+				client->socket->desc);
+		pthread_mutex_unlock(&plataforma->logger_mutex);
+
+		personaje_termino_plan_de_niveles(plataforma->orquestador, strdup(request->payload));
+
+		if (!hay_personajes_jugando(plataforma->orquestador)) {
 			pthread_mutex_lock(&plataforma->logger_mutex);
 			log_info(plataforma->logger,
 					"Orquestador: Todos los personajes terminaron los niveles.");
@@ -143,8 +159,8 @@ void process_request(t_mensaje* request, t_socket_client* client,
 
 			ejecutar_koopa(plataforma);
 		}
-
 		break;
+
 	case M_RECURSOS_LIBERADOS:
 		orquestador_liberar_recursos(plataforma, client,
 				string_duplicate((char*) request->payload));
@@ -254,13 +270,6 @@ bool procesar_handshake_nivel(t_orquestador* self,
 	return true;
 }
 
-void mostrar_mensaje(t_mensaje* mensaje, t_socket_client* client) {
-	printf("Mensaje recibido del socket: %d\n", client->socket->desc);
-	printf("TYPE: %d\n", mensaje->type);
-	printf("LENGHT: %d\n", mensaje->length);
-	printf("PAYLOAD: %s\n", (char*) mensaje->payload);
-}
-
 void verificar_nivel_desconectado(t_plataforma* plataforma,
 		t_socket_client* client) {
 
@@ -333,23 +342,23 @@ planificador_t_personaje* orquestador_seleccionar_victima(
 	string_iterate_lines(ids, (void*) buscar_y_agregar_en_lista);
 	array_destroy(ids);
 
-	int temporal_compare_to(char* t1, char* t2){
+	int temporal_compare_to(char* t1, char* t2) {
 		char** time1 = string_split(t1, ":");
 		char** time2 = string_split(t2, ":");
 
 		int index = 0;
 
-		while(time1[index] != NULL && time2[index] != NULL){
+		while (time1[index] != NULL && time2[index] != NULL ) {
 			int v1 = atoi(time1[index]);
 			int v2 = atoi(time2[index]);
 
-			if(v1 < v2){
+			if (v1 < v2) {
 				array_destroy(time1);
 				array_destroy(time2);
 				return -1;
 			}
 
-			if(v1 > v2){
+			if (v1 > v2) {
 				array_destroy(time1);
 				array_destroy(time2);
 				return 1;
@@ -365,7 +374,7 @@ planificador_t_personaje* orquestador_seleccionar_victima(
 	}
 
 	bool comparator(planificador_t_personaje* p1, planificador_t_personaje* p2) {
-		return temporal_compare_to(p1->tiempo_llegada, p2->tiempo_llegada)<0;
+		return temporal_compare_to(p1->tiempo_llegada, p2->tiempo_llegada) < 0;
 	}
 
 	list_sort(personajes, (void*) comparator);
@@ -459,34 +468,19 @@ void orquestador_informar_victima_al_nivel(t_plataforma* plataforma,
 	free(victima_str);
 }
 
-bool hay_personajes_jugando(t_plataforma* plataforma) {
+bool hay_personajes_jugando(t_orquestador* self) {
 
-	bool hay_personajes = false;
-
-	void hay_personajes_en_nivel(plataforma_t_nivel* nivel) {
-		if (!hay_personajes) {
-			if (nivel->planificador->personaje_ejecutando != NULL ) {
-				hay_personajes = true;
-			}
-
-			if (!queue_is_empty(nivel->planificador->personajes_ready)) {
-				hay_personajes = true;
-			}
-
-			void personajes_bloqueados(char* key, t_queue* queue) {
-				if (!queue_is_empty(queue)) {
-					hay_personajes = true;
-				}
-			}
-
-			dictionary_iterator(nivel->planificador->personajes_blocked,
-					(void*) personajes_bloqueados);
-		}
+	bool personaje_esta_jugando(orquestador_t_personaje* personaje){
+		return !personaje->termino_todo;
 	}
 
-	list_iterate(plataforma->niveles, (void*) hay_personajes_en_nivel);
+	t_list* personajes_jugando = list_filter(self->personajes, (void*)personaje_esta_jugando);
 
-	return hay_personajes;
+	bool hay_personajes_jugando = !list_is_empty(personajes_jugando);
+
+	list_destroy(personajes_jugando);
+
+	return hay_personajes_jugando;
 }
 
 void ejecutar_koopa(t_plataforma* plataforma) {
@@ -496,8 +490,8 @@ void ejecutar_koopa(t_plataforma* plataforma) {
 	pthread_mutex_unlock(&plataforma->logger_mutex);
 
 	t_config* config = config_create(plataforma->config_path);
-	if (!config_has_property(config, "dondeEstaKoopa") ||
-		!config_has_property(config, "koopaParamPath")) {
+	if (!config_has_property(config, "dondeEstaKoopa")
+			|| !config_has_property(config, "koopaParamPath")) {
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_warning(plataforma->logger,
 				"El path de koopa o de sus parametros no se encuentra en la configuracion.");
@@ -514,8 +508,51 @@ void ejecutar_koopa(t_plataforma* plataforma) {
 
 	config_destroy(config);
 
-	plataforma_destroy(plataforma);
-	execl(donde_esta_koopa, "koopa", koopa_param, NULL);
+//	plataforma_destroy(plataforma);
+	if(execl(donde_esta_koopa, "koopa", koopa_param, NULL )==-1){
+		perror("Error al ejecutar koopa");
+	}
+
 	free(donde_esta_koopa);
 	free(koopa_param);
+}
+
+void orquestador_guardar_personaje(t_orquestador* self, t_socket_client* client,
+		t_plataforma* plataforma) {
+
+	char* id_personaje = mensaje_get_simbolo_personaje(client,
+			plataforma->logger, &plataforma->logger_mutex);
+
+	if (id_personaje != NULL ) {
+		bool es_el_personaje(orquestador_t_personaje* personaje) {
+			return personaje->id == id_personaje[0];
+		}
+
+		orquestador_t_personaje* personaje = list_find(self->personajes,
+				(void*) es_el_personaje);
+
+		if (personaje == NULL ) {
+			personaje = malloc(sizeof(orquestador_t_personaje));
+			personaje->id = id_personaje[0];
+			personaje->termino_todo = false;
+			list_add(self->personajes, personaje);
+		}
+
+		free(id_personaje);
+	}
+
+}
+
+void personaje_termino_plan_de_niveles(t_orquestador* self, char* id_personaje){
+
+	bool es_el_personaje(orquestador_t_personaje* personaje) {
+		return personaje->id == id_personaje[0];
+	}
+
+	orquestador_t_personaje* personaje = list_find(self->personajes,
+			(void*) es_el_personaje);
+
+	if(personaje != NULL){
+		personaje->termino_todo = true;
+	}
 }

@@ -20,7 +20,13 @@ typedef struct {
 	int planificadores_count;
 	t_list* clients;
 	t_list* servers;
+	t_list* personajes;
 } t_orquestador;
+
+typedef struct {
+	char id;
+	bool termino_todo;
+} orquestador_t_personaje;
 
 typedef struct {
 	char id;
