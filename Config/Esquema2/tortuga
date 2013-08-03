@@ -4,7 +4,7 @@ planDeNiveles=[DeadLock]
 obj[DeadLock]=[B,H]
 vidas=5
 orquestador=127.0.0.1:5000
-puerto=5005
+puerto=4503
 logFile=tortuga.log
 logLevel=TRACE
 
