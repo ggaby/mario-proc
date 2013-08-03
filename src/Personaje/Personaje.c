@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
 
 	t_personaje* self = personaje_create(argv[1]);
 
-	if (self == NULL ) {
+	if (self == NULL) {
 		return EXIT_FAILURE;
 	}
 
@@ -47,7 +47,7 @@ int main(int argc, char* argv[]) {
 
 	sigterm_action.sa_handler = sigterm_handler;
 	sigemptyset(&sigterm_action.sa_mask);
-	if (sigaction(SIGTERM, &sigterm_action, NULL ) == -1) {
+	if (sigaction(SIGTERM, &sigterm_action, NULL) == -1) {
 		log_error(self->logger, "Error al querer setear la señal SIGTERM");
 		return EXIT_FAILURE;
 	}
@@ -57,12 +57,12 @@ int main(int argc, char* argv[]) {
 	sigusr1_action.sa_handler = sigusr1_handler;
 	sigusr1_action.sa_flags = SA_RESTART;
 	sigemptyset(&sigusr1_action.sa_mask);
-	if (sigaction(SIGUSR1, &sigusr1_action, NULL ) == -1) {
+	if (sigaction(SIGUSR1, &sigusr1_action, NULL) == -1) {
 		log_error(self->logger, "Error al querer setear la señal SIGUSR1");
 		return EXIT_FAILURE;
 	}
 
-	while (self->plan_de_niveles[self->nivel_actual_index] != NULL ) {
+	while (self->plan_de_niveles[self->nivel_actual_index] != NULL) {
 
 		self->nivel_actual = personaje_nivel_create(
 				self->plan_de_niveles[self->nivel_actual_index]);
@@ -90,7 +90,9 @@ int main(int argc, char* argv[]) {
 				self->nivel_actual->planificador->puerto);
 
 		//Hacer esto es una mierda, pero la otra forma es peor ;)
-		if (self->socket_orquestador->serv_socket != NULL ) {
+		log_info(self->logger, "Personaje %s: Desconectando del Orquestador",
+				self->nombre);
+		if (self->socket_orquestador->serv_socket != NULL) {
 			sockets_destroy(self->socket_orquestador->serv_socket);
 		}
 		sockets_destroyClient(self->socket_orquestador);
@@ -111,15 +113,18 @@ int main(int argc, char* argv[]) {
 			if (reiniciar_flan) {
 				reiniciar_flan = 0;
 				self->nivel_actual_index = 0;
-				log_info(self->logger, "Reiniciando plan de niveles");
 				sleep(2);
+				log_info(self->logger,
+						"Personaje %s: Reiniciando plan de niveles",
+						self->nombre);
 				continue;
 			}
 
 			if (reiniciar_nivel) {
 				reiniciar_nivel = 0;
-				log_info(self->logger, "Reiniciando nivel");
 				sleep(2);
+				log_info(self->logger, "Personaje %s: Reiniciando nivel",
+						self->nombre);
 				continue;
 			}
 
@@ -130,7 +135,7 @@ int main(int argc, char* argv[]) {
 		self->nivel_actual_index++;
 	} //FIN while por cada nivel.
 
-	if (self->plan_de_niveles[self->nivel_actual_index] == NULL ) { //terminé todos los niveles
+	if (self->plan_de_niveles[self->nivel_actual_index] == NULL) { //terminé todos los niveles
 		//Demian, ya se que está de más, pero me gusta chequearlo al pedo :P
 		if (!personaje_conectar_a_orquestador(self)) {
 			personaje_destroy(self);
@@ -140,13 +145,14 @@ int main(int argc, char* argv[]) {
 		personaje_avisar_fin_de_nivel(self);
 		personaje_avisar_fin_de_plan_niveles(self);
 
-		if (self->socket_orquestador->serv_socket != NULL ) {
+		if (self->socket_orquestador->serv_socket != NULL) {
 			sockets_destroy(self->socket_orquestador->serv_socket);
 		}
 		sockets_destroyClient(self->socket_orquestador);
 		self->socket_orquestador = NULL;
 
-		log_info(self->logger, "Terminé todos los niveles :)");
+		log_info(self->logger, "Personaje %s: Terminé todos los niveles :)",
+				self->nombre);
 	}
 	personaje_destroy(self);
 
@@ -155,8 +161,9 @@ int main(int argc, char* argv[]) {
 
 bool personaje_get_info_nivel(t_personaje* self) {
 
-	log_info(self->logger, "Personaje %s: Solicitando datos del nivel %s",
-			self->nombre, self->nivel_actual->nombre);
+	log_info(self->logger,
+			"Personaje -> Orquestador: Solicitando datos del nivel %s",
+			self->nivel_actual->nombre);
 
 	mensaje_create_and_send(M_GET_INFO_NIVEL_REQUEST,
 			strdup(self->nivel_actual->nombre),
@@ -164,15 +171,15 @@ bool personaje_get_info_nivel(t_personaje* self) {
 
 	t_mensaje* response = mensaje_recibir(self->socket_orquestador);
 
-	if (response == NULL ) {
+	if (response == NULL) {
 		log_error(self->logger,
 				"Personaje %s: Error al recibir la información del nivel",
 				self->nombre);
-		return NULL ;
+		return NULL;
 	}
 
 	if (response->type == M_ERROR) {
-		log_error(self->logger, "Personaje %s: %s", self->nombre,
+		log_error(self->logger, "Orquestador -> Personaje: %s",
 				(char*) response->payload);
 		mensaje_destroy(response);
 		return false;
@@ -180,7 +187,7 @@ bool personaje_get_info_nivel(t_personaje* self) {
 
 	if (response->type != M_GET_INFO_NIVEL_RESPONSE) {
 		log_error(self->logger,
-				"Personaje %s: Error desconocido en la respuesta",
+				"Personaje %s: Error desconocido en la respuesta del Orquestador",
 				self->nombre);
 		mensaje_destroy(response);
 		return false;
@@ -221,7 +228,7 @@ t_personaje* personaje_create(char* config_path) {
 
 	if (!config_has_property(config, "puerto")) {
 		morir("Falta el puerto");
-		return NULL ;
+		return NULL;
 	}
 	new->puerto = config_get_int_value(config, "puerto");
 
@@ -263,24 +270,24 @@ void personaje_destroy(t_personaje* self) {
 			(void*) array_destroy);
 	connection_destroy(self->orquestador_info);
 	log_destroy(self->logger);
-	if (self->socket_orquestador != NULL ) {
-		if (self->socket_orquestador->serv_socket != NULL ) {
+	if (self->socket_orquestador != NULL) {
+		if (self->socket_orquestador->serv_socket != NULL) {
 			sockets_destroy(self->socket_orquestador->serv_socket);
 		}
 		sockets_destroyClient(self->socket_orquestador);
 	}
-	if (self->nivel_actual != NULL ) {
+	if (self->nivel_actual != NULL) {
 		personaje_nivel_destroy(self->nivel_actual);
 	}
-	if (self->posicion != NULL ) {
+	if (self->posicion != NULL) {
 		posicion_destroy(self->posicion);
 	}
 
-	if (self->posicion_objetivo != NULL ) {
+	if (self->posicion_objetivo != NULL) {
 		posicion_destroy(self->posicion_objetivo);
 	}
 
-	if (self->objetivo_actual != NULL ) {
+	if (self->objetivo_actual != NULL) {
 		free(self->objetivo_actual);
 	}
 
@@ -291,7 +298,7 @@ t_dictionary* _personaje_load_objetivos(t_config* config,
 		char** plan_de_niveles) {
 	t_dictionary* objetivos = dictionary_create();
 	int i = 0;
-	while (plan_de_niveles[i] != NULL ) {
+	while (plan_de_niveles[i] != NULL) {
 		char* nivel = string_duplicate(plan_de_niveles[i]);
 		char* key = string_new();
 		string_append(&key, "obj[");
@@ -357,23 +364,23 @@ void personaje_nivel_destroy(t_personaje_nivel* nivel) {
 
 	free(nivel->nombre);
 
-	if (nivel->nivel != NULL ) {
+	if (nivel->nivel != NULL) {
 		connection_destroy(nivel->nivel);
 	}
 
-	if (nivel->planificador != NULL ) {
+	if (nivel->planificador != NULL) {
 		connection_destroy(nivel->planificador);
 	}
 
-	if (nivel->socket_planificador != NULL ) {
-		if (nivel->socket_planificador->serv_socket != NULL ) {
+	if (nivel->socket_planificador != NULL) {
+		if (nivel->socket_planificador->serv_socket != NULL) {
 			sockets_destroy(nivel->socket_planificador->serv_socket);
 		}
 		sockets_destroyClient(nivel->socket_planificador);
 	}
 
-	if (nivel->socket_nivel != NULL ) {
-		if (nivel->socket_nivel->serv_socket != NULL ) {
+	if (nivel->socket_nivel != NULL) {
+		if (nivel->socket_nivel->serv_socket != NULL) {
 			sockets_destroy(nivel->socket_nivel->serv_socket);
 		}
 		sockets_destroyClient(nivel->socket_nivel);
@@ -397,13 +404,13 @@ bool personaje_conectar_a_nivel(t_personaje* self) {
 			M_HANDSHAKE_PERSONAJE, PERSONAJE_HANDSHAKE, HANDSHAKE_SUCCESS,
 			"Nivel");
 
-	if (self->nivel_actual->socket_nivel == NULL ) {
+	if (self->nivel_actual->socket_nivel == NULL) {
 		return false;
 	}
 
 	t_mensaje* mensaje = mensaje_recibir(self->nivel_actual->socket_nivel);
 
-	if (mensaje == NULL ) {
+	if (mensaje == NULL) {
 		log_error(self->logger, "Personaje %s: El nivel %s se ha desconectado.",
 				self->nombre, self->nivel_actual->nombre);
 		return false;
@@ -423,7 +430,7 @@ bool personaje_conectar_a_nivel(t_personaje* self) {
 			self->nivel_actual->socket_nivel);
 	free(simbolo);
 
-	if (self->posicion != NULL ) {
+	if (self->posicion != NULL) {
 		posicion_destroy(self->posicion);
 	}
 	self->posicion = posicion_create(0, 0);
@@ -438,14 +445,14 @@ bool personaje_conectar_a_planificador(t_personaje* self) {
 			M_HANDSHAKE_PERSONAJE, PERSONAJE_HANDSHAKE, HANDSHAKE_SUCCESS,
 			"Planificador");
 
-	if (self->nivel_actual->socket_planificador == NULL ) {
+	if (self->nivel_actual->socket_planificador == NULL) {
 		return false;
 	}
 
 	t_mensaje* mensaje = mensaje_recibir(
 			self->nivel_actual->socket_planificador);
 
-	if (mensaje == NULL ) {
+	if (mensaje == NULL) {
 		log_error(self->logger,
 				"Personaje %s: El planificador del nivel %s se ha desconectado.",
 				self->nombre, self->nivel_actual->nombre);
@@ -479,19 +486,19 @@ bool personaje_jugar_nivel(t_personaje* self) {
 	self->objetivo_actual_index = 0;
 	self->objetivo_actual = NULL;
 
-	while (self->objetivos_array[self->objetivo_actual_index] != NULL ) {
+	while (self->objetivos_array[self->objetivo_actual_index] != NULL) {
 		self->objetivo_actual = string_duplicate(
 				self->objetivos_array[self->objetivo_actual_index++]); //incremento aca para contabilizar solo cuando cambio de objetivo
 
 		log_info(self->logger, "Personaje %s: nuevo objetivo %s", self->nombre,
 				self->objetivo_actual);
 
-		if (self->posicion_objetivo == NULL ) {
+		if (self->posicion_objetivo == NULL) {
 			self->posicion_objetivo = pedir_posicion_objetivo(self,
 					self->objetivo_actual);
 		}
 
-		if (self->posicion_objetivo == NULL ) {
+		if (self->posicion_objetivo == NULL) {
 			free(self->objetivo_actual);
 			self->objetivo_actual = NULL;
 			return false;
@@ -535,23 +542,27 @@ bool personaje_jugar_nivel(t_personaje* self) {
 
 t_posicion* pedir_posicion_objetivo(t_personaje* self, char* objetivo) {
 
+	log_info(self->logger,
+			"Personaje -> Nivel %s: Solicitando posición del recurso %s",
+			self->nivel_actual->nombre, objetivo);
 	mensaje_create_and_send(M_GET_POSICION_RECURSO_REQUEST,
 			string_duplicate(objetivo), strlen(objetivo) + 1,
 			self->nivel_actual->socket_nivel);
 
 	t_mensaje* mensaje = mensaje_recibir(self->nivel_actual->socket_nivel);
 
-	if (mensaje == NULL ) {
+	if (mensaje == NULL) {
 		log_error(self->logger, "Personaje %s: El nivel %s se ha desconectado.",
 				self->nombre, self->nivel_actual->nombre);
-		return NULL ;
+		return NULL;
 	}
 
 	t_posicion* posicion_objetivo = posicion_duplicate(mensaje->payload);
 	mensaje_destroy(mensaje);
 
-	log_info(self->logger, "Personaje %s: %s esta en (%d,%d)", self->nombre,
-			objetivo, posicion_objetivo->x, posicion_objetivo->y);
+	log_info(self->logger, "Nivel %s -> Personaje: %s esta en (%d,%d)",
+			self->nivel_actual->nombre, objetivo, posicion_objetivo->x,
+			posicion_objetivo->y);
 	return posicion_objetivo;
 }
 
@@ -559,7 +570,7 @@ bool realizar_movimiento(t_personaje* self) {
 	t_mensaje* notificacion_movimiento = mensaje_recibir(
 			self->nivel_actual->socket_planificador);
 
-	if (notificacion_movimiento == NULL ) {
+	if (notificacion_movimiento == NULL) {
 		if (reiniciar_flan || reiniciar_nivel) { //La syscall salió por el EINTR de la señal
 			return false;
 		}
@@ -573,26 +584,30 @@ bool realizar_movimiento(t_personaje* self) {
 	mensaje_destroy(notificacion_movimiento);
 
 	if (mensaje_type == M_NOTIFICACION_MOVIMIENTO) {
+		log_info(self->logger,
+				"Nivel %s -> Personaje: Notificación de movimiento recibida",
+				self->nivel_actual->nombre);
 		if (posicion_equals(self->posicion, self->posicion_objetivo)
 				&& self->is_blocked) {
 
-			log_info(self->logger, "Personaje %s: objetivo %s asignado",
-					self->nombre, self->objetivo_actual);
+			log_info(self->logger,
+					"Nivel %s -> Personaje: Objetivo %s asignado",
+					self->nivel_actual->nombre, self->objetivo_actual);
 
-			if (self->objetivos_array[self->objetivo_actual_index] != NULL ) {
+			if (self->objetivos_array[self->objetivo_actual_index] != NULL) {
 				//Quedan más objetivos, pasamos al siguiente...
 				free(self->objetivo_actual);
 				self->objetivo_actual = string_duplicate(
 						self->objetivos_array[self->objetivo_actual_index++]);
 
-				log_info(self->logger, "Personaje %s: nuevo objetivo %s",
+				log_info(self->logger, "Personaje %s: Nuevo objetivo %s",
 						self->nombre, self->objetivo_actual);
 
 				posicion_destroy(self->posicion_objetivo);
 				self->posicion_objetivo = pedir_posicion_objetivo(self,
 						self->objetivo_actual);
 
-				if (self->posicion_objetivo == NULL ) {
+				if (self->posicion_objetivo == NULL) {
 					free(self->objetivo_actual);
 					self->objetivo_actual = NULL;
 					return false;
@@ -616,6 +631,9 @@ bool mover_en_nivel(t_personaje* self) {
 	t_posicion* proxima_posicion = posicion_get_proxima_hacia(self->posicion,
 			self->posicion_objetivo);
 
+	log_info(self->logger,
+			"Personaje -> Nivel %s: Notificación de movimiento recibida",
+			self->nivel_actual->nombre);
 	mensaje_create_and_send(M_SOLICITUD_MOVIMIENTO_REQUEST,
 			posicion_duplicate(proxima_posicion), sizeof(t_posicion),
 			self->nivel_actual->socket_nivel);
@@ -623,7 +641,7 @@ bool mover_en_nivel(t_personaje* self) {
 	t_mensaje* solicitud_mov_response = mensaje_recibir(
 			self->nivel_actual->socket_nivel);
 
-	if (solicitud_mov_response == NULL ) {
+	if (solicitud_mov_response == NULL) {
 		log_error(self->logger, "Personaje %s: El nivel %s se ha desconectado.",
 				self->nombre, self->nivel_actual->nombre);
 		posicion_destroy(proxima_posicion);
@@ -631,7 +649,9 @@ bool mover_en_nivel(t_personaje* self) {
 	}
 
 	if (solicitud_mov_response->type == M_ERROR) {
-		log_error(self->logger, "Movimiento rechazado: %s",
+		log_error(self->logger,
+				"Nivel %s -> Personaje: Movimiento rechazado: %s",
+				self->nivel_actual->nombre,
 				(char*) solicitud_mov_response->payload);
 		mensaje_destroy(solicitud_mov_response);
 		posicion_destroy(proxima_posicion);
@@ -639,6 +659,8 @@ bool mover_en_nivel(t_personaje* self) {
 	}
 
 	if (solicitud_mov_response->type == M_SOLICITUD_MOVIMIENTO_OK_RESPONSE) {
+		log_info(self->logger, "Nivel %s -> Personaje: Movimiento OK",
+				self->nivel_actual->nombre);
 		posicion_destroy(self->posicion);
 		self->posicion = proxima_posicion;
 		mensaje_destroy(solicitud_mov_response);
@@ -654,9 +676,12 @@ bool finalizar_turno(t_personaje* self) {
 	if (posicion_equals(self->posicion, self->posicion_objetivo)) { //Llegué al recurso
 
 		if (self->is_blocked
-				&& self->objetivos_array[self->objetivo_actual_index] == NULL ) {
+				&& self->objetivos_array[self->objetivo_actual_index] == NULL) {
 			//Estaba esperando a que se debloquee el último objetivo
 			self->is_blocked = false;
+			log_info(self->logger,
+					"Personaje -> Planificador Nivel %s: Turno finalizado",
+					self->nivel_actual->nombre);
 			mensaje_create_and_send(M_TURNO_FINALIZADO_OK, NULL, 0,
 					self->nivel_actual->socket_planificador);
 			return true;
@@ -666,23 +691,28 @@ bool finalizar_turno(t_personaje* self) {
 				self->nombre, self->objetivo_actual);
 		t_mensaje* result = solicitar_recurso(self);
 
-		if (result == NULL ) {
+		if (result == NULL) {
 			return false;
 		}
 
 		if (result->type == M_SOLICITUD_RECURSO_RESPONSE_OK) {
-			log_info(self->logger, "Personaje %s: objetivo %s asignado",
-					self->nombre, self->objetivo_actual);
+			log_info(self->logger,
+					"Planificador Nivel %s -> Personaje: Objetivo %s asignado",
+					self->nivel_actual->nombre, self->objetivo_actual);
 			mensaje_create_and_send(M_TURNO_FINALIZADO_SOLICITANDO_RECURSO,
-					NULL, 0, self->nivel_actual->socket_planificador);
+			NULL, 0, self->nivel_actual->socket_planificador);
 			mensaje_destroy(result);
 			return true;
 		}
 
 		if (result->type == M_SOLICITUD_RECURSO_RESPONSE_BLOCKED) {
-			log_info(self->logger, "Personaje %s: objetivo %s NO asignado",
-					self->nombre, self->objetivo_actual);
+			log_info(self->logger,
+					"Planificador Nivel %s -> Personaje: Objetivo %s NO asignado",
+					self->nivel_actual->nombre, self->objetivo_actual);
 			self->is_blocked = true;
+			log_info(self->logger,
+					"Personaje -> Planificador Nivel %s: Turno finalizado bloqueado por el recurso %s",
+					self->nivel_actual->nombre, self->objetivo_actual);
 			mensaje_create_and_send(M_TURNO_FINALIZADO_BLOCKED,
 					string_duplicate(self->objetivo_actual),
 					strlen(self->objetivo_actual) + 1,
@@ -693,6 +723,9 @@ bool finalizar_turno(t_personaje* self) {
 		mensaje_destroy(result);
 		return false;
 	} else {
+		log_info(self->logger,
+				"Personaje -> Planificador Nivel %s: Turno finalizado",
+				self->nivel_actual->nombre);
 		mensaje_create_and_send(M_TURNO_FINALIZADO_OK, NULL, 0,
 				self->nivel_actual->socket_planificador);
 		return true;
@@ -701,6 +734,9 @@ bool finalizar_turno(t_personaje* self) {
 }
 
 t_mensaje* solicitar_recurso(t_personaje* self) {
+	log_info(self->logger,
+			"Personaje -> Planificador Nivel %s: Turno finalizado",
+			self->nivel_actual->nombre);
 	mensaje_create_and_send(M_SOLICITUD_RECURSO_REQUEST,
 			posicion_duplicate(self->posicion), sizeof(t_posicion),
 			self->nivel_actual->socket_nivel);
@@ -713,10 +749,10 @@ t_mensaje* solicitar_recurso(t_personaje* self) {
 }
 
 void finalizar_nivel(t_personaje* self) {
-	log_info(self->logger, "Personaje %s: finalice nivel %s", self->nombre,
-			self->nivel_actual->nombre);
 	self->nivel_finalizado = true;
-
+	log_info(self->logger,
+			"Personaje -> Planificador de Nivel %s: Finalicé el nivel %s",
+			self->nivel_actual->nombre, self->nivel_actual->nombre);
 	mensaje_create_and_send(M_FIN_DE_NIVEL, NULL, 0,
 			self->nivel_actual->socket_nivel);
 
@@ -724,7 +760,7 @@ void finalizar_nivel(t_personaje* self) {
 }
 
 void morir(t_personaje* self, char* motivo) {
-	log_info(self->logger, motivo);
+	log_info(self->logger, "Personaje: %s", motivo);
 	if (self->vidas > 0) {
 		self->vidas--;
 		reiniciar_nivel = 1;
@@ -739,39 +775,43 @@ void morir(t_personaje* self, char* motivo) {
 
 void personaje_avisar_fin_de_nivel(t_personaje* self) {
 	if (self->nivel_finalizado) {
-		log_debug(self->logger,
-				"Personaje %s: Avisando al orquestador que terminé el nivel",
-				self->nombre);
+		log_info(self->logger, "Personaje -> Orquestador: Terminé el nivel %s",
+				self->nivel_actual->nombre);
 		mensaje_create_and_send(M_FIN_DE_NIVEL, NULL, 0,
 				self->socket_orquestador);
 	}
 }
 
 void limpiar_estado_nivel(t_personaje* self) {
-	if (self->nivel_actual != NULL ) {
+	if (self->nivel_actual != NULL) {
+		log_info(self->logger, "Personaje -> Nivel %s: Desconectar",
+				self->nivel_actual->nombre);
+		log_info(self->logger,
+				"Personaje -> Planificador de Nivel %s: Desconectar",
+				self->nivel_actual->nombre);
 		personaje_nivel_destroy(self->nivel_actual);
 		self->nivel_actual = NULL;
 	}
 
-	if (self->posicion != NULL ) {
+	if (self->posicion != NULL) {
 		posicion_destroy(self->posicion);
 		self->posicion = NULL;
 	}
 
-	if (self->posicion_objetivo != NULL ) {
+	if (self->posicion_objetivo != NULL) {
 		posicion_destroy(self->posicion_objetivo);
 		self->posicion_objetivo = NULL;
 	}
 
-	if (self->socket_orquestador != NULL ) {
-		if (self->socket_orquestador->serv_socket != NULL ) {
+	if (self->socket_orquestador != NULL) {
+		if (self->socket_orquestador->serv_socket != NULL) {
 			sockets_destroy(self->socket_orquestador->serv_socket);
 		}
 		sockets_destroyClient(self->socket_orquestador);
 		self->socket_orquestador = NULL;
 	}
 
-	if (self->objetivo_actual != NULL ) {
+	if (self->objetivo_actual != NULL) {
 		free(self->objetivo_actual);
 		self->objetivo_actual = NULL;
 	}
@@ -782,8 +822,8 @@ void limpiar_estado_nivel(t_personaje* self) {
 }
 
 void avisar_muerte_a_nivel(t_personaje* self) {
-	log_info(self->logger, "Personaje %s: Avisando al nivel %s que me muero",
-			self->nombre, self->nivel_actual->nombre);
+	log_info(self->logger, "Personaje -> Nivel %s: Me muero",
+			self->nivel_actual->nombre);
 	self->nivel_finalizado = false;
 
 	mensaje_create_and_send(M_MUERTE_PERSONAJE, NULL, 0,

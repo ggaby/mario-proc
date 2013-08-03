@@ -32,7 +32,7 @@ void* verificador_deadlock(void* level) {
 		bool hay_deadlock = false;
 
 		bool personaje_puede_ejecutar(nivel_t_personaje* personaje) {
-			if (personaje->simbolo_recurso_esperado == NULL ) {
+			if (personaje->simbolo_recurso_esperado == NULL) {
 				liberar_recursos_del_personaje(personaje, recursos_disponibles);
 				hay_deadlock = false;
 				return true;
@@ -103,8 +103,11 @@ void avisar_deadlock_al_orquestador(nivel_t_nivel* nivel,
 
 	char* ids_personajes = personajes_as_string_ids(personajes_bloqueados);
 
+	nivel_loguear(log_info, nivel,
+			"Nivel -> Orquestador - DEADLOCK DETECTADO, personajes involucrados: %s",
+			ids_personajes);
 	mensaje_create_and_send(M_DEADLOCK_DETECTADO,
-			string_duplicate(ids_personajes), strlen(ids_personajes)+1,
+			string_duplicate(ids_personajes), strlen(ids_personajes) + 1,
 			nivel->socket_orquestador);
 
 	free(ids_personajes);
@@ -143,13 +146,12 @@ void liberar_recursos_del_personaje(nivel_t_personaje* personaje,
 }
 
 t_list* clonar_personajes(nivel_t_nivel* nivel) {
-//	t_list* personajes_bloqueados = list_create();
 
 	nivel_t_personaje* clonar_personaje(nivel_t_personaje* personaje) {
 		nivel_t_personaje* new = malloc(sizeof(nivel_t_personaje));
 		new->id = personaje->id;
 
-		if (personaje->simbolo_recurso_esperado == NULL ) {
+		if (personaje->simbolo_recurso_esperado == NULL) {
 			new->simbolo_recurso_esperado = NULL;
 		} else {
 			new->simbolo_recurso_esperado = string_duplicate(
@@ -163,8 +165,6 @@ t_list* clonar_personajes(nivel_t_nivel* nivel) {
 		return new;
 	}
 
-//	list_iterate(nivel->personajes, (void*) clonar_personaje_bloqueado);
-//	return personajes_bloqueados;
 	return my_list_clone_and_clone_elements(nivel->personajes,
 			(void*) clonar_personaje);
 }

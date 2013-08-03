@@ -32,13 +32,15 @@ void* orquestador(void* plat) {
 
 		t_mensaje* mensaje = mensaje_recibir(client);
 
-		if (mensaje == NULL ) {
+		if (mensaje == NULL) {
 			sockets_destroyClient(client);
 			pthread_mutex_lock(&plataforma->logger_mutex);
 			log_warning(plataforma->logger,
-					"Orquestador: Error al recibir datos en el accept");
+					"%s:%d -> Orquestador - Error al recibir datos en el accept",
+					sockets_getIp(client->socket),
+					sockets_getPort(client->socket));
 			pthread_mutex_unlock(&plataforma->logger_mutex);
-			return NULL ;
+			return NULL;
 		}
 
 		int tipo_mensaje = mensaje->type;
@@ -57,14 +59,18 @@ void* orquestador(void* plat) {
 			if (!procesar_handshake_nivel(self, client, plataforma)) {
 				orquestador_send_error_message("Error al procesar el handshake",
 						client);
-				return NULL ;
+				return NULL;
 			}
 			break;
 		default:
 			pthread_mutex_lock(&plataforma->logger_mutex);
-			log_warning(plataforma->logger,
-					"Orquestador: Error al recibir el handshake, tipo de mensaje no valido %d",
+			char* error_msg = string_from_format(
+					"Tipo del mensaje recibido no válido tipo: %d",
 					tipo_mensaje);
+			log_warning(plataforma->logger, error_msg);
+			mensaje_create_and_send(M_ERROR, string_duplicate(error_msg),
+					strlen(error_msg) + 1, client);
+			free(error_msg);
 			pthread_mutex_unlock(&plataforma->logger_mutex);
 			orquestador_send_error_message("Request desconocido", client);
 			return NULL ;
@@ -80,7 +86,9 @@ void* orquestador(void* plat) {
 		if (mensaje == NULL ) {
 			pthread_mutex_lock(&plataforma->logger_mutex);
 			log_debug(plataforma->logger,
-					"Orquestador: Mensaje recibido NULL.");
+					"%s:%d -> Nivel - Mensaje recibido NULL",
+					sockets_getIp(client->socket),
+					sockets_getPort(client->socket));
 			pthread_mutex_unlock(&plataforma->logger_mutex);
 			verificar_nivel_desconectado(plataforma, client);
 			return false;
@@ -186,14 +194,17 @@ void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client,
 	plataforma_t_nivel* el_nivel = plataforma_get_nivel_by_nombre(plataforma,
 			nivel_pedido);
 
-	if (el_nivel == NULL ) {
-		pthread_mutex_lock(&plataforma->logger_mutex);
-		log_error(plataforma->logger, "Orquestador: Nivel inválido: %s",
+	if (el_nivel == NULL) {
+		char* error_msg = string_from_format("Nivel inválido: %s",
 				nivel_pedido);
+		pthread_mutex_lock(&plataforma->logger_mutex);
+		log_error(plataforma->logger, "Orquestador -> Personaje: %s",
+				error_msg);
 		pthread_mutex_unlock(&plataforma->logger_mutex);
 
 		free(nivel_pedido);
-		orquestador_send_error_message("Nivel inválido", client);
+		orquestador_send_error_message(error_msg, client);
+		free(error_msg);
 		return;
 	}
 
@@ -202,6 +213,11 @@ void orquestador_get_info_nivel(t_mensaje* request, t_socket_client* client,
 	t_stream* response_data = get_info_nivel_response_create_serialized(
 			el_nivel->connection_info, el_nivel->planificador->connection_info);
 
+	pthread_mutex_lock(&plataforma->logger_mutex);
+	log_info(plataforma->logger,
+			"Orquestador -> Personaje: Enviando información de nivel %s",
+			nivel_pedido);
+	pthread_mutex_unlock(&plataforma->logger_mutex);
 	mensaje_setdata(response, response_data->data, response_data->length);
 	mensaje_send(response, client);
 	mensaje_destroy(response);
@@ -227,11 +243,11 @@ bool procesar_handshake_nivel(t_orquestador* self,
 
 	mensaje = mensaje_recibir(socket_nivel);
 
-	if (mensaje == NULL ) {
+	if (mensaje == NULL) {
 		sockets_destroyClient(socket_nivel);
 		pthread_mutex_lock(&plataforma->logger_mutex);
 		log_warning(plataforma->logger,
-				"Orquestador: Error al recibir el nombre del nivel");
+				"Orquestador -> Nivel - Handshake recibido inválido");
 		pthread_mutex_unlock(&plataforma->logger_mutex);
 		return false;
 	}
@@ -240,8 +256,8 @@ bool procesar_handshake_nivel(t_orquestador* self,
 		sockets_destroyClient(socket_nivel);
 		mensaje_destroy(mensaje);
 		pthread_mutex_lock(&plataforma->logger_mutex);
-		log_error(plataforma->logger,
-				"Orquestador: Tipo de respuesta inválido");
+		log_warning(plataforma->logger,
+				"Orquestador -> Nivel - Handshake recibido inválido");
 		pthread_mutex_unlock(&plataforma->logger_mutex);
 		return false;
 	}
@@ -348,7 +364,7 @@ planificador_t_personaje* orquestador_seleccionar_victima(
 
 		int index = 0;
 
-		while (time1[index] != NULL && time2[index] != NULL ) {
+		while (time1[index] != NULL && time2[index] != NULL) {
 			int v1 = atoi(time1[index]);
 			int v2 = atoi(time2[index]);
 
