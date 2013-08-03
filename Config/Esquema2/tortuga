@@ -6,5 +6,5 @@ vidas=5
 orquestador=127.0.0.1:5000
 puerto=4503
 logFile=tortuga.log
-logLevel=TRACE
+logLevel=INFO
 

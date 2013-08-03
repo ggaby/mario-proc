@@ -3,3 +3,4 @@ tiempoEntreMovimientos=0.5
 ip=127.0.0.1
 dondeEstaKoopa=/home/utnso/tp-20131c-ahrelocoooo/Exec/koopa
 koopaParamPath=/home/utnso/tp-20131c-ahrelocoooo/Config/Esquema2/esquema2.koopa
+logLevel=INFO

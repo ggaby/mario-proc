@@ -6,4 +6,4 @@ vidas=5
 orquestador=127.0.0.1:5000
 puerto=4502
 logFile=mario.log
-logLevel=TRACE
+logLevel=INFO
