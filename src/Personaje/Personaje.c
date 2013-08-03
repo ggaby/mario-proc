@@ -774,8 +774,7 @@ void morir(t_personaje* self, char* motivo) {
 
 void personaje_avisar_fin_de_nivel(t_personaje* self) {
 	if (self->nivel_finalizado) {
-		log_info(self->logger, "Personaje -> Orquestador: Terminé el nivel %s",
-				self->nivel_actual->nombre);
+		log_info(self->logger, "Personaje -> Orquestador: Terminé el nivel");
 		mensaje_create_and_send(M_FIN_DE_NIVEL, NULL, 0,
 				self->socket_orquestador);
 	}
