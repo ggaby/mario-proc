@@ -1,4 +1,4 @@
-nombre=luigi
+nombre=Luigi
 simbolo=*
 planDeNiveles=[DeadLock]
 obj[DeadLock]=[M,Z]

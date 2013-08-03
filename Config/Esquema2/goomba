@@ -1,4 +1,4 @@
-nombre=goomba
+nombre=Goomba
 simbolo=#
 planDeNiveles=[DeadLock]
 obj[DeadLock]=[Z,H]

@@ -1,4 +1,4 @@
-nombre=mario
+nombre=Mario
 simbolo=@
 planDeNiveles=[DeadLock]
 obj[DeadLock]=[H,M]
