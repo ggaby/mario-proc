@@ -60,7 +60,7 @@ bool personaje_jugar_nivel(t_personaje* self);
 t_posicion* pedir_posicion_objetivo(t_personaje* self, char* objetivo);
 bool realizar_movimiento(t_personaje* self);
 bool mover_en_nivel(t_personaje* self);
-bool finalizar_turno(t_personaje* self, char* objetivo);
+bool finalizar_turno(t_personaje* self);
 t_mensaje* solicitar_recurso(t_personaje* self);
 void finalizar_nivel(t_personaje* self);
 void personaje_avisar_fin_de_nivel(t_personaje* self);
