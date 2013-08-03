@@ -1,4 +1,4 @@
-nombre=goomba
+nombre=Goomba
 simbolo=$
 planDeNiveles=[Level1-1,Level3-1,Level8-8]
 obj[Level1-1]=[H,V,F,H,V,H]

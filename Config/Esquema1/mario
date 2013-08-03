@@ -1,4 +1,4 @@
-nombre=mario
+nombre=Mario
 simbolo=@
 planDeNiveles=[Level1-1,Level3-1,Level8-8]
 obj[Level1-1]=[F,H,M,H,B]
