@@ -4,6 +4,6 @@ planDeNiveles=[DeadLock]
 obj[DeadLock]=[Z,H]
 vidas=5	
 orquestador=127.0.0.1:5000
-puerto=5007
+puerto=4500
 logFile=goomba.log
 logLevel=TRACE
